@@ -73,7 +73,7 @@ export function resetDatabase() {
     db.exec('DELETE FROM employee_learning_technologies');
     db.exec('DELETE FROM employee_domain_expertise');
     db.exec('DELETE FROM employees');
-    db.exec('DELETE FROM users');
+    // Keep users intact so active authentication sessions remain valid
     db.exec('DELETE FROM skills');
     db.exec('DELETE FROM business_units');
     db.exec('DELETE FROM locations');

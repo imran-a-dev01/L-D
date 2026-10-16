@@ -40,7 +40,7 @@ const DEFAULT_DROPDOWNS: DropdownData = {
   profileStatuses: ['Complete', 'In Progress', 'Needs Review'],
 };
 
-const CACHE_KEY = 'nexus_db_dropdowns_v5';
+const CACHE_KEY = 'nexus_db_dropdowns_v6';
 
 class DropdownService {
   private cache: DropdownData = DEFAULT_DROPDOWNS;

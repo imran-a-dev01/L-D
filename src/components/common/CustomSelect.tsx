@@ -216,10 +216,6 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 mt-1 text-[10px] text-blue-600 font-medium">
-          <Sparkles className="w-3 h-3 text-blue-500 shrink-0" />
-          <span>{saveSuccess ? 'Saved to database' : 'Manual entry • Will be saved to database for future employees'}</span>
-        </div>
       </div>
     );
   }
@@ -393,10 +389,6 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                 </button>
               </div>
             )}
-          </div>
-          <div className="flex items-center gap-1 mt-1 text-[10px] text-blue-600 font-medium">
-            <Sparkles className="w-3 h-3 text-blue-500 shrink-0" />
-            <span>{saveSuccess ? 'Saved to database' : 'Will be automatically registered in database for all employees'}</span>
           </div>
         </div>
       )}

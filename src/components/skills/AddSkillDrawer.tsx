@@ -268,10 +268,6 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
                       Save to Catalog
                     </button>
                   </div>
-                  <div className="flex items-center gap-1 text-[10px] text-blue-600 font-medium pl-1">
-                    <Sparkles className="w-3 h-3 text-blue-500 shrink-0" />
-                    <span>Skill will be saved to catalog for all profiles</span>
-                  </div>
                 </div>
               ) : (
                 <div className="relative">

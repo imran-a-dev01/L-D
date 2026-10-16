@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Employee } from '../types/employee';
 import { TechnicalSkill, DomainExpertise, SkillCategory, ProficiencyLevel } from '../types/skill';
+import { ALL_CATEGORIES, PROFICIENCY_LEVELS } from '../data/skillRegistry';
 
 import { SkillIcon } from '../components/common/SkillIcon';
 import { AddSkillDrawer } from '../components/skills/AddSkillDrawer';
@@ -661,20 +662,22 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
 
           {/* Category Tabs */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-100">
-            {dropdownOptions.skillCategories.filter((c) => c !== 'Domain Expertise').map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setActiveCategoryTab(cat as SkillCategory)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  activeCategoryTab === cat
-                    ? 'bg-blue-50 text-[#1265FF] border border-blue-200 shadow-2xs font-bold'
-                    : 'text-[#64748B] hover:text-[#0B1B4D] hover:bg-slate-50 border border-transparent'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+            {(dropdownOptions.skillCategories.length > 0 ? dropdownOptions.skillCategories : ALL_CATEGORIES)
+              .filter((c) => c !== 'Domain Expertise')
+              .map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setActiveCategoryTab(cat as SkillCategory)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    activeCategoryTab === cat
+                      ? 'bg-blue-50 text-[#1265FF] border border-blue-200 shadow-2xs font-bold'
+                      : 'text-[#64748B] hover:text-[#0B1B4D] hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
           </div>
 
           {/* Table of Skills */}
@@ -726,7 +729,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                           }}
                           className="px-3 py-1.5 bg-white border border-[#E3EAF5] focus:border-[#1265FF] focus:ring-1 focus:ring-blue-100 rounded-xl text-xs sm:text-sm font-semibold text-[#0B1B4D] h-9 transition-all"
                         >
-                          {dropdownOptions.proficiencies.map((lvl) => (
+                          {(dropdownOptions.proficiencies.length > 0 ? dropdownOptions.proficiencies : PROFICIENCY_LEVELS).map((lvl) => (
                             <option key={lvl} value={lvl}>{lvl}</option>
                           ))}
                         </select>
@@ -946,7 +949,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                 <CustomSelect
                   value={domainProficiency}
                   onChange={(val) => setDomainProficiency(val as ProficiencyLevel)}
-                  options={dropdownOptions.proficiencies}
+                  options={dropdownOptions.proficiencies.length > 0 ? dropdownOptions.proficiencies : [...PROFICIENCY_LEVELS]}
                   placeholder="Select proficiency..."
                   size="md"
                   allowOther={false}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search, Info, Check, Calendar, ArrowRight, Layers, Sparkles } from 'lucide-react';
 import { SkillCategory, ProficiencyLevel, TechnicalSkill } from '../../types/skill';
+import { ALL_CATEGORIES, PROFICIENCY_LEVELS } from '../../data/skillRegistry';
 import { skillService } from '../../services/skillService';
 import { SkillIcon } from '../common/SkillIcon';
 import { CustomSelect } from '../common/CustomSelect';
@@ -26,8 +27,9 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
 }) => {
   const { toast } = useToast();
   const dropdownOptions = useDropdowns();
-  const skillCategories = dropdownOptions.skillCategories.length > 0 ? dropdownOptions.skillCategories : [];
-  const proficiencyLevels = dropdownOptions.proficiencies.length > 0 ? dropdownOptions.proficiencies : [];
+  const skillCategories = (dropdownOptions.skillCategories.length > 0 ? dropdownOptions.skillCategories : ALL_CATEGORIES)
+    .filter((c) => c !== 'Domain Expertise');
+  const proficiencyLevels = dropdownOptions.proficiencies.length > 0 ? dropdownOptions.proficiencies : [...PROFICIENCY_LEVELS];
   const [category, setCategory] = useState<SkillCategory>(initialCategory);
   const [selectedTechName, setSelectedTechName] = useState('');
   const [techSearch, setTechSearch] = useState('');

@@ -26,13 +26,21 @@ const DEFAULT_DROPDOWNS: DropdownData = {
   projects: [],
   customers: [],
   managers: [],
-  skillCategories: [],
+  skillCategories: [
+    'Frontend',
+    'Backend',
+    'Database',
+    'Cloud',
+    'Data',
+    'DevOps & Tools',
+    'Domain Expertise',
+  ],
   domains: [],
-  proficiencies: [],
-  profileStatuses: [],
+  proficiencies: ['Beginner', 'Intermediate', 'Advanced', 'Expert'],
+  profileStatuses: ['Complete', 'In Progress', 'Needs Review'],
 };
 
-const CACHE_KEY = 'nexus_db_dropdowns_v3';
+const CACHE_KEY = 'nexus_db_dropdowns_v5';
 
 class DropdownService {
   private cache: DropdownData = DEFAULT_DROPDOWNS;
@@ -98,10 +106,10 @@ class DropdownService {
           projects: res.projects || [],
           customers: res.customers || [],
           managers: res.managers || [],
-          skillCategories: res.skillCategories || [],
+          skillCategories: res.skillCategories && res.skillCategories.length > 0 ? res.skillCategories : DEFAULT_DROPDOWNS.skillCategories,
           domains: res.domains || [],
-          proficiencies: res.proficiencies || [],
-          profileStatuses: res.profileStatuses || [],
+          proficiencies: res.proficiencies && res.proficiencies.length > 0 ? res.proficiencies : DEFAULT_DROPDOWNS.proficiencies,
+          profileStatuses: res.profileStatuses && res.profileStatuses.length > 0 ? res.profileStatuses : DEFAULT_DROPDOWNS.profileStatuses,
         };
         this.cache = data;
         this.isLoaded = true;

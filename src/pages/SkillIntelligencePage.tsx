@@ -17,6 +17,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import { SkillCategory, TechnicalSkill } from '../types/skill';
+import { ALL_CATEGORIES } from '../data/skillRegistry';
 import { SkillIcon } from '../components/common/SkillIcon';
 import { AddSkillDrawer } from '../components/skills/AddSkillDrawer';
 import { useToast } from '../components/common/Toast';
@@ -37,7 +38,8 @@ export const SkillIntelligencePage: React.FC<SkillIntelligencePageProps> = ({
 }) => {
   const { toast } = useToast();
   const dropdownOptions = useDropdowns();
-  const allCategories = dropdownOptions.skillCategories.length > 0 ? dropdownOptions.skillCategories : [] as string[];
+  const allCategories = (dropdownOptions.skillCategories.length > 0 ? dropdownOptions.skillCategories : ALL_CATEGORIES)
+    .filter((c) => c !== 'Domain Expertise');
   const [activeTab, setActiveTab] = useState<SkillCategory | 'All'>('Frontend');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};

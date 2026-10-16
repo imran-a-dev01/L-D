@@ -266,6 +266,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             iconTextColor="text-[#016DD9]"
             cardBg="bg-white"
             cardBorder="border-[#DFE5EE]"
+            bgImage="/kpi-1.png"
             onClick={() => setIsTotalEmployeesModalOpen(true)}
           />
 
@@ -284,11 +285,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             iconTextColor="text-emerald-600"
             cardBg="bg-white"
             cardBorder="border-[#DFE5EE]"
+            bgImage="/kpi-2.png"
             onClick={() => setIsProfilesCompleteModalOpen(true)}
           />
 
           <SkillCoverageCard
             data={analytics?.skillCoverage}
+            bgImage="/kpi-3.png"
             onViewInsights={onNavigateToSkills}
           />
         </div>

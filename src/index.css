@@ -146,6 +146,14 @@ html, body {
   box-shadow: 0 0 0 3px rgba(1, 109, 217, 0.15);
 }
 
+.glass-morphism-input-light:-webkit-autofill,
+.glass-morphism-input-light:-webkit-autofill:hover,
+.glass-morphism-input-light:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.95) inset !important;
+  -webkit-text-fill-color: #0B1B4D !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
 /* Silky Smooth Page Dissolve & Glide Transition ("Maranji vara maari" without lag) */
 @keyframes pageEnter {
   0% {

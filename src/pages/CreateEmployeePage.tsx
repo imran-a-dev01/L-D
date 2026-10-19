@@ -437,7 +437,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                     setEmail(e.target.value);
                     if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
                   }}
-                  placeholder="imran.a@owlsure.com"
+                  placeholder="name@company.com"
                   className={`w-full pl-9 pr-3.5 py-2.5 bg-white border ${
                     errors.email ? 'border-rose-400 ring-1 ring-rose-200' : 'border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100'
                   } rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs h-11 transition-all`}

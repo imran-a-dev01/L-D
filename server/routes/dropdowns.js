@@ -81,8 +81,6 @@ router.post('/', authenticateToken, (req, res) => {
       if (mgrMatch) {
         name = mgrMatch[1].trim();
         mgrEmail = mgrMatch[2].trim();
-      } else if (!mgrEmail) {
-        mgrEmail = `${trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '.')}@owlsure.com`;
       }
 
       db.prepare('INSERT OR IGNORE INTO managers (name, email) VALUES (?, ?)').run(name, mgrEmail);

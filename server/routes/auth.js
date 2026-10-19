@@ -71,7 +71,7 @@ router.post('/setup', async (req, res) => {
     db.prepare(`
       INSERT INTO users (id, name, email, password_hash, role_id, status)
       VALUES (?, ?, ?, ?, 'SUPER_ADMIN', 'ACTIVE')
-    `).run(id, name.trim(), email.trim().toLowerCase(), passwordHash);
+    `).run(id, name.trim(), email.trim(), passwordHash);
 
     const user = db.prepare(`
       SELECT u.id, u.name, u.email, u.role_id, u.employee_id, u.status, r.name as role_name
@@ -192,7 +192,7 @@ router.post('/users', authenticateToken, requirePermission('rbac:manage'), async
     db.prepare(`
       INSERT INTO users (id, name, email, password_hash, role_id, status)
       VALUES (?, ?, ?, ?, ?, 'ACTIVE')
-    `).run(id, name.trim(), email.trim().toLowerCase(), passwordHash, roleId);
+    `).run(id, name.trim(), email.trim(), passwordHash, roleId);
 
     const user = db.prepare(`
       SELECT u.id, u.name, u.email, u.role_id, u.employee_id, u.status, r.name as role_name

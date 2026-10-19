@@ -17,7 +17,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -92,7 +92,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           )}
 
           {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
             {/* Work email */}
             <div className="space-y-1.5 text-left">
               <label className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider flex items-center justify-between">
@@ -103,6 +103,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <Mail className="w-4 h-4 text-[#94A3B8] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="email"
+                  name="user_work_email"
+                  id="user_work_email"
+                  autoComplete="off"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -122,6 +125,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <Lock className="w-4 h-4 text-[#94A3B8] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  name="user_work_password"
+                  id="user_work_password"
+                  autoComplete="new-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

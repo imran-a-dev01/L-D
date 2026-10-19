@@ -105,7 +105,7 @@ function autoRecordMasterLookups(emp) {
     if (mgrMatch) {
       db.prepare('INSERT OR IGNORE INTO managers (name, email) VALUES (?, ?)').run(mgrMatch[1].trim(), mgrMatch[2].trim());
     } else {
-      const email = emp.reportingManager.includes('@') ? emp.reportingManager.trim() : `${emp.reportingManager.trim().toLowerCase().replace(/\s+/g, '.')}@owlsure.com`;
+      const email = emp.reportingManager.includes('@') ? emp.reportingManager.trim() : '';
       db.prepare('INSERT OR IGNORE INTO managers (name, email) VALUES (?, ?)').run(emp.reportingManager.trim(), email);
     }
   }

@@ -98,7 +98,8 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS managers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    email TEXT NOT NULL UNIQUE
+    email TEXT NOT NULL DEFAULT '',
+    UNIQUE(name, email)
 );
 
 CREATE TABLE IF NOT EXISTS skill_categories (
@@ -135,6 +136,7 @@ CREATE TABLE IF NOT EXISTS employees (
     designation TEXT NOT NULL,
     business_unit TEXT NOT NULL,
     reporting_manager TEXT NOT NULL,
+    reporting_manager_email TEXT DEFAULT '',
     current_project TEXT,
     current_customer TEXT,
     location TEXT NOT NULL,

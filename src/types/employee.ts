@@ -8,7 +8,8 @@ export interface Employee {
   email: string;
   designation: string; // Designation / Grade
   businessUnit: string; // Business Unit / Practice
-  reportingManager: string; // Reporting Manager Email or Name
+  reportingManager: string; // Reporting Manager Name
+  reportingManagerEmail?: string; // Reporting Manager Email (optional)
   currentProject: string;
   currentCustomer: string;
   location: string;

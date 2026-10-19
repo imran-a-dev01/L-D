@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Search, Filter, Plus, ChevronDown, RotateCcw } from 'lucide-react';
+import { Search, Filter, RotateCcw } from 'lucide-react';
 
 import { CustomSelect } from '../common/CustomSelect';
-import { useDropdowns } from '../../hooks/useDropdowns';
+import { ManagerFilterOption } from '../../lib/employeeFilters';
+
+const STANDARD_PROFICIENCIES = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
+const STANDARD_PROFILE_STATUSES = ['Complete', 'In Progress', 'Needs Review'];
 
 interface EmployeeFiltersProps {
   search: string;
@@ -22,7 +25,11 @@ interface EmployeeFiltersProps {
   minExperience: number;
   onMinExperienceChange: (value: number) => void;
   onResetFilters: () => void;
-  onAddEmployee: () => void;
+  // Options derived from active employees
+  practices?: string[];
+  locations?: string[];
+  managers?: ManagerFilterOption[];
+  domains?: string[];
 }
 
 export const EmployeeFilters: React.FC<EmployeeFiltersProps> = ({
@@ -43,10 +50,12 @@ export const EmployeeFilters: React.FC<EmployeeFiltersProps> = ({
   minExperience,
   onMinExperienceChange,
   onResetFilters,
-  onAddEmployee,
+  practices = [],
+  locations = [],
+  managers = [],
+  domains = [],
 }) => {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
-  const { practices, locations, proficiencies, profileStatuses, domains, managers } = useDropdowns();
 
   const hasActiveFilters = 
     search !== '' || 
@@ -123,7 +132,7 @@ export const EmployeeFilters: React.FC<EmployeeFiltersProps> = ({
               onChange={onProficiencyChange}
               options={[
                 { value: 'All', label: 'All Levels' },
-                ...proficiencies.map((lvl) => ({ value: lvl, label: lvl }))
+                ...STANDARD_PROFICIENCIES.map((lvl) => ({ value: lvl, label: lvl }))
               ]}
               size="sm"
               allowOther={false}
@@ -140,7 +149,7 @@ export const EmployeeFilters: React.FC<EmployeeFiltersProps> = ({
               onChange={onProfileStatusChange}
               options={[
                 { value: 'All', label: 'All Statuses' },
-                ...profileStatuses.map((st) => ({ value: st, label: st }))
+                ...STANDARD_PROFILE_STATUSES.map((st) => ({ value: st, label: st }))
               ]}
               size="sm"
               allowOther={false}
@@ -170,15 +179,6 @@ export const EmployeeFilters: React.FC<EmployeeFiltersProps> = ({
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
           )}
-
-          {/* Add Employee CTA */}
-          <button
-            onClick={onAddEmployee}
-            className="btn-shake inline-flex items-center gap-1.5 px-4 py-2 text-xs md:text-sm font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Employee</span>
-          </button>
         </div>
       </div>
 
@@ -194,9 +194,7 @@ export const EmployeeFilters: React.FC<EmployeeFiltersProps> = ({
                 onChange={onManagerChange || (() => {})}
                 options={[
                   { value: 'All', label: 'All Managers' },
-                  ...(managers && managers.length > 0
-                    ? managers.map((m) => ({ value: m, label: m }))
-                    : []),
+                  ...managers.map((m) => ({ value: m.key, label: m.label })),
                 ]}
                 size="sm"
                 allowOther={false}

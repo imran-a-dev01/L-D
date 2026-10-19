@@ -22,6 +22,7 @@ import { SkillIcon } from '../components/common/SkillIcon';
 import { AddSkillDrawer } from '../components/skills/AddSkillDrawer';
 import { useToast } from '../components/common/Toast';
 import { useDropdowns } from '../hooks/useDropdowns';
+import { PageBreadcrumb } from '../components/layout/PageBreadcrumb';
 
 interface SkillIntelligencePageProps {
   skills: TechnicalSkill[];
@@ -107,10 +108,8 @@ export const SkillIntelligencePage: React.FC<SkillIntelligencePageProps> = ({
       {/* Breadcrumb & Top Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold text-[#64748B] flex items-center gap-1.5 mb-1">
-            <span>Skill Intelligence</span>
-            <span>›</span>
-            <span className="text-[#0B1B4D]">Technical Skills</span>
+          <div className="mb-3">
+            <PageBreadcrumb label="Technical Skills" />
           </div>
           <h1 className="text-2xl font-extrabold text-[#0B1B4D] tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">
             Technical Skills
@@ -290,10 +289,14 @@ export const SkillIntelligencePage: React.FC<SkillIntelligencePageProps> = ({
 
                             {/* Last Used */}
                             <td className="py-3.5 px-3 text-[#64748B]">
-                              <div className="flex items-center gap-1.5">
-                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                <span>{skill.lastUsed}</span>
-                              </div>
+                              {skill.lastUsed ? (
+                                <div className="flex items-center gap-1.5">
+                                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>{skill.lastUsed}</span>
+                                </div>
+                              ) : (
+                                '—'
+                              )}
                             </td>
 
                             {/* Last Project */}

@@ -91,7 +91,7 @@ export const SkillIcon: React.FC<SkillIconProps> = ({
     <div
       className={`inline-flex items-center justify-center shrink-0 rounded bg-slate-100/90 border border-slate-200/80 shadow-xs ${className}`}
       style={{ width: pixelSize, height: pixelSize }}
-      title={`${name} (${category || 'Technology'})`}
+      title={category ? `${name} (${category})` : name}
     >
       {renderFallbackIcon()}
     </div>

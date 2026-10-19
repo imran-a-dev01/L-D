@@ -200,9 +200,11 @@ export const KpiCard: React.FC<KpiCardProps> = ({
               <h2 className="text-base sm:text-lg font-bold tracking-tight text-[#0B1B4D] font-['Plus_Jakarta_Sans',sans-serif] leading-tight">
                 {title}
               </h2>
-              <p className="mt-1.5 text-xs text-[#64748B] leading-relaxed">
-                {subtitle || 'Suitable to grow steadily.'}
-              </p>
+              {subtitle && (
+                <p className="mt-1.5 text-xs text-[#64748B] leading-relaxed">
+                  {subtitle}
+                </p>
+              )}
             </div>
 
             {/* Icon with pulse ring on hover */}

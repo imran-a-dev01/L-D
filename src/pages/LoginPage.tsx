@@ -59,7 +59,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       />
 
       {/* Glassmorphism Login Credentials Card - Positioned on the lighter right area */}
-      <div className="relative z-20 w-full max-w-md animate-in zoom-in-95 fade-in duration-300">
+      <div className="relative z-20 w-full max-w-md">
         <div className="glass-morphism-card-light rounded-3xl p-7 sm:p-9 border border-white/90 shadow-2xl relative overflow-hidden">
           
           {/* Subtle Top Glass Reflection Shimmer */}

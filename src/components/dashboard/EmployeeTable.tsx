@@ -26,7 +26,193 @@ import {
   X
 } from 'lucide-react';
 import { Employee } from '../../types/employee';
+import { DomainExpertise, TechnicalSkill } from '../../types/skill';
 import { SkillIcon } from '../common/SkillIcon';
+import { SkillChipGroup } from '../common/SkillChipGroup';
+import { DeployableRolesGroup } from '../common/DeployableRolesGroup';
+
+const SKILL_CATEGORY_ORDER = [
+  'Frontend',
+  'Backend',
+  'Database',
+  'Cloud',
+  'Data',
+  'DevOps & Tools',
+  'Domain Expertise',
+];
+
+interface ExpandedSkillsSectionProps {
+  skills: TechnicalSkill[];
+}
+
+const ExpandedSkillsSection: React.FC<ExpandedSkillsSectionProps> = ({ skills = [] }) => {
+  const [showAll, setShowAll] = useState(false);
+
+  if (!skills || skills.length === 0) {
+    return (
+      <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-400 italic">
+        <span>Skills:</span>
+        <span>No verified skills recorded</span>
+      </div>
+    );
+  }
+
+  // Group by category
+  const grouped = skills.reduce<Record<string, TechnicalSkill[]>>((acc, s) => {
+    const cat = s.category?.trim() || 'Uncategorized';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(s);
+    return acc;
+  }, {});
+
+  // Sort categories according to preferred taxonomy order
+  const categories = Object.keys(grouped).sort((a, b) => {
+    const idxA = SKILL_CATEGORY_ORDER.indexOf(a);
+    const idxB = SKILL_CATEGORY_ORDER.indexOf(b);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return a.localeCompare(b);
+  });
+
+  const totalSkills = skills.length;
+  const isCapped = totalSkills > 12 && !showAll;
+
+  // Compute up to 12 skills across categories if capped
+  let remainingBudget = isCapped ? 12 : Infinity;
+  const displayedCategories: { name: string; skills: TechnicalSkill[]; total: number }[] = [];
+
+  for (const cat of categories) {
+    const allCatSkills = grouped[cat];
+    if (remainingBudget <= 0) break;
+    const take = Math.min(allCatSkills.length, remainingBudget);
+    displayedCategories.push({
+      name: cat,
+      skills: allCatSkills.slice(0, take),
+      total: allCatSkills.length,
+    });
+    remainingBudget -= take;
+  }
+
+  return (
+    <div className="mt-3.5 pt-3 border-t border-slate-100 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
+          Verified Skills ({totalSkills})
+        </span>
+        {totalSkills > 12 && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAll(!showAll);
+            }}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1265FF] hover:underline cursor-pointer"
+          >
+            {showAll ? (
+              <>
+                <span>Show less</span>
+                <ChevronUp className="w-3 h-3" />
+              </>
+            ) : (
+              <>
+                <span>Show all ({totalSkills})</span>
+                <ChevronDown className="w-3 h-3" />
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        {displayedCategories.map((cat) => (
+          <div key={cat.name} className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-[11px] font-semibold text-[#475569] bg-slate-100 px-2 py-0.5 rounded-md shrink-0">
+              {cat.name} ({cat.total}):
+            </span>
+            {cat.skills.map((s) => (
+              <span
+                key={s.id || s.name}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EFF6FF] text-[#1E40AF] text-[10px] font-medium border border-blue-100"
+                title={`${s.name} (${s.proficiency}${s.experienceYears ? ` • ${s.experienceYears}y exp` : ''})`}
+              >
+                <SkillIcon name={s.name} category={s.category} size="xs" />
+                <span>{s.name} ({s.proficiency})</span>
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+interface ExpandedDomainsSectionProps {
+  domains?: DomainExpertise[];
+}
+
+const ExpandedDomainsSection: React.FC<ExpandedDomainsSectionProps> = ({ domains = [] }) => {
+  const [showAll, setShowAll] = useState(false);
+
+  if (!domains || domains.length === 0) {
+    return (
+      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-400 italic">
+        <span>Domains:</span>
+        <span>No domain expertise listed</span>
+      </div>
+    );
+  }
+
+  const total = domains.length;
+  const visible = total > 6 && !showAll ? domains.slice(0, 6) : domains;
+
+  return (
+    <div className="mt-2.5 pt-2.5 border-t border-slate-100 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
+          Domains ({total})
+        </span>
+        {total > 6 && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAll(!showAll);
+            }}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1265FF] hover:underline cursor-pointer"
+          >
+            {showAll ? (
+              <>
+                <span>Show less</span>
+                <ChevronUp className="w-3 h-3" />
+              </>
+            ) : (
+              <>
+                <span>Show all ({total})</span>
+                <ChevronDown className="w-3 h-3" />
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {visible.map((d) => (
+          <span
+            key={d.id || d.domain}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#FAF5FF] text-[#6B21A8] text-[10px] font-medium border border-purple-100"
+            title={`${d.domain === 'Others' ? d.customDomain : d.domain} (${d.proficiency}${d.experienceYears ? ` • ${d.experienceYears}y exp` : ''})`}
+          >
+            <Layers className="w-3 h-3 text-purple-500" />
+            <span>
+              {d.domain === 'Others' ? d.customDomain : d.domain} ({d.proficiency})
+            </span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 interface EmployeeTableProps {
   employees: Employee[];
@@ -38,7 +224,7 @@ interface EmployeeTableProps {
   onResetFilters: () => void;
 }
 
-type SortColumn = 'id' | 'name' | 'designation' | 'businessUnit' | 'totalExperience' | 'profileCompletion';
+type SortColumn = 'id' | 'name' | 'designation' | 'businessUnit' | 'totalExperience';
 
 export const EmployeeTable: React.FC<EmployeeTableProps> = ({
   employees,
@@ -114,12 +300,12 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
   };
 
   const handleExportAll = () => {
-    onExportCsv(employees);
+    onExportCsv();
   };
 
   const handleExportSelected = () => {
     const selected = employees.filter((e) => selectedIds.includes(e.id));
-    onExportCsv(selected.length > 0 ? selected : employees);
+    onExportCsv(selected.length > 0 ? selected : undefined);
   };
 
   const handleBulkDelete = () => {
@@ -200,16 +386,16 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
           <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-50 text-[#1265FF] flex items-center justify-center mb-3">
             <UserX className="w-7 h-7" />
           </div>
-          <h3 className="text-base font-bold text-[#0B1B4D]">No employees found</h3>
+          <h3 className="text-base font-bold text-[#0B1B4D]">No records found</h3>
           <p className="text-xs text-[#64748B] max-w-sm mx-auto mt-1 mb-4">
-            No matching workforce profiles found for your current search or filter criteria.
+            No matching employee records found for your current filter criteria.
           </p>
           <button
             type="button"
             onClick={onResetFilters}
             className="btn-shake px-5 py-2 text-xs font-semibold transition-colors cursor-pointer"
           >
-            Reset Filters
+            Reset filters
           </button>
         </div>
       ) : (
@@ -227,7 +413,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-[#F8FAFD] border-b border-[#DFE5EE] text-[#64748B] font-semibold select-none">
-                    <th className="py-3 px-4 w-10">
+                    <th className="py-3 px-4 w-12 text-center">
                       <input
                         type="checkbox"
                         checked={isAllSelected}
@@ -238,7 +424,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
 
                     <th 
                       onClick={() => handleSort('id')}
-                      className="py-3 px-3 font-semibold cursor-pointer hover:text-[#0B1B4D] transition-colors"
+                      className="py-3 px-3 w-28 font-semibold cursor-pointer hover:text-[#0B1B4D] transition-colors"
                     >
                       <div className="flex items-center gap-1.5">
                         <span>Employee ID</span>
@@ -252,7 +438,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
 
                     <th 
                       onClick={() => handleSort('name')}
-                      className="py-3 px-4 font-semibold cursor-pointer hover:text-[#0B1B4D] transition-colors"
+                      className="py-3 px-4 min-w-[170px] font-semibold cursor-pointer hover:text-[#0B1B4D] transition-colors"
                     >
                       <div className="flex items-center gap-1.5">
                         <span>Employee</span>
@@ -266,7 +452,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
 
                     <th 
                       onClick={() => handleSort('designation')}
-                      className="py-3 px-3 font-semibold cursor-pointer hover:text-[#0B1B4D] transition-colors"
+                      className="py-3 px-3 min-w-[120px] font-semibold cursor-pointer hover:text-[#0B1B4D] transition-colors"
                     >
                       <div className="flex items-center gap-1.5">
                         <span>Designation</span>
@@ -280,7 +466,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
 
                     <th 
                       onClick={() => handleSort('businessUnit')}
-                      className="py-3 px-3 font-semibold cursor-pointer hover:text-[#0B1B4D] transition-colors"
+                      className="py-3 px-3 min-w-[110px] font-semibold cursor-pointer hover:text-[#0B1B4D] transition-colors"
                     >
                       <div className="flex items-center gap-1.5">
                         <span>Practice</span>
@@ -292,12 +478,12 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                       </div>
                     </th>
 
-                    <th className="py-3 px-3 font-semibold">Location</th>
-                    <th className="py-3 px-4 font-semibold">Primary Skills</th>
+                    <th className="py-3 px-3 min-w-[110px] font-semibold">Location</th>
+                    <th className="py-3 px-4 min-w-[210px] font-semibold">Primary Skills</th>
 
                     <th 
                       onClick={() => handleSort('totalExperience')}
-                      className="py-3 px-3 font-semibold cursor-pointer hover:text-[#0B1B4D] transition-colors"
+                      className="py-3 px-3 w-28 font-semibold cursor-pointer hover:text-[#0B1B4D] transition-colors"
                     >
                       <div className="flex items-center gap-1.5">
                         <span>Experience</span>
@@ -309,21 +495,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                       </div>
                     </th>
 
-                    <th 
-                      onClick={() => handleSort('profileCompletion')}
-                      className="py-3 px-3 font-semibold cursor-pointer hover:text-[#0B1B4D] transition-colors"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <span>Profile Completion</span>
-                        {sortColumn === 'profileCompletion' ? (
-                          sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-[#1265FF]" /> : <ArrowDown className="w-3 h-3 text-[#1265FF]" />
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300 opacity-60" />
-                        )}
-                      </div>
-                    </th>
-
-                    <th className="py-3 px-4 text-center font-semibold">Actions</th>
+                    <th className="py-3 px-4 w-16 text-center font-semibold">Actions</th>
                   </tr>
                 </thead>
 
@@ -394,69 +566,34 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
 
                           {/* Designation */}
                           <td className="py-4 px-3 text-[#0B1B4D] font-normal leading-tight">
-                            {emp.designation}
+                            {emp.designation?.trim() || '—'}
                           </td>
 
                           {/* Practice */}
                           <td className="py-4 px-3 text-[#0B1B4D] font-normal">
-                            {emp.businessUnit}
+                            {emp.businessUnit?.trim() || '—'}
                           </td>
 
                           {/* Location */}
                           <td className="py-4 px-3">
                             <div className="flex items-center gap-1.5 text-[#64748B]">
                               <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              <span>{emp.location}</span>
+                              <span>{emp.location?.trim() || '—'}</span>
                             </div>
                           </td>
 
                           {/* Primary Skills */}
-                          <td className="py-4 px-4">
-                            <div className="flex flex-wrap items-center gap-1.5 max-w-[240px]">
-                              {emp.technicalSkills.slice(0, 3).map((s) => (
-                                <span
-                                  key={s.id}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#EFF6FF] text-[#1E40AF] font-medium text-[11px] border border-blue-100/70"
-                                >
-                                  <SkillIcon name={s.name} category={s.category} size="xs" />
-                                  <span>{s.name}</span>
-                                </span>
-                              ))}
-                              {emp.technicalSkills.length > 3 && (
-                                <span className="text-[11px] font-semibold text-[#64748B] bg-slate-100 px-2 py-0.5 rounded-md">
-                                  +{emp.technicalSkills.length - 3}
-                                </span>
-                              )}
-                            </div>
+                          <td className="py-4 px-4 min-w-[210px]">
+                            <SkillChipGroup
+                              skills={emp.technicalSkills}
+                              maxVisible={2}
+                              popoverTitle={`${emp.name}'s Verified Skills`}
+                            />
                           </td>
 
                           {/* Experience */}
                           <td className="py-4 px-3 text-[#0B1B4D] font-normal whitespace-nowrap">
                             {emp.totalExperience} Years
-                          </td>
-
-                          {/* Profile Completion with animated bar */}
-                          <td className="py-4 px-3">
-                            <div className="flex items-center gap-2.5">
-                              <span className="text-xs font-bold text-[#0B1B4D] min-w-7">
-                                {emp.profileCompletion}%
-                              </span>
-                              <div className="w-24 h-2 rounded-full bg-[#E2E8F0] overflow-hidden">
-                                <motion.div
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${emp.profileCompletion}%` }}
-                                  transition={{ duration: 0.5, ease: 'easeOut' }}
-                                  className={`h-full rounded-full ${
-                                    emp.profileCompletion >= 80 ? 'bg-[#10B981]' : 'bg-[#F59E0B]'
-                                  }`}
-                                />
-                              </div>
-                              {emp.profileCompletion >= 80 ? (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                              ) : (
-                                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-                              )}
-                            </div>
                           </td>
 
                           {/* Actions */}
@@ -514,7 +651,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                         <AnimatePresence>
                           {isExpanded && (
                             <tr key={`${emp.id}-detail`} className="bg-slate-50/70">
-                              <td colSpan={10} className="p-0 border-b border-[#DFE5EE]">
+                              <td colSpan={9} className="p-0 border-b border-[#DFE5EE]">
                                 <motion.div
                                   initial={{ height: 0, opacity: 0 }}
                                   animate={{ height: 'auto', opacity: 1 }}
@@ -543,24 +680,37 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                                       </button>
                                     </div>
 
-                                    {/* Metadata 4-Column DL matching Spectrum UI renderDetail */}
-                                    <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                                    {/* Metadata 5-Column DL matching Spectrum UI renderDetail */}
+                                    <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 text-xs">
                                       <div>
                                         <dt className="text-[11px] font-medium text-[#64748B]">Reporting Manager</dt>
-                                        <dd className="mt-1 font-semibold text-[#0B1B4D]">{emp.reportingManager || 'Leadership Group'}</dd>
+                                        <dd className="mt-1 font-semibold text-[#0B1B4D]">
+                                          {emp.reportingManager?.trim() ? (
+                                            <div>
+                                              <div>{emp.reportingManager.trim()}</div>
+                                              {emp.reportingManagerEmail?.trim() && (
+                                                <div className="text-[11px] text-[#64748B] font-normal">
+                                                  {emp.reportingManagerEmail.trim()}
+                                                </div>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            '—'
+                                          )}
+                                        </dd>
                                       </div>
 
                                       <div>
                                         <dt className="text-[11px] font-medium text-[#64748B]">Current Project / Customer</dt>
                                         <dd className="mt-1 font-semibold text-[#0B1B4D]">
-                                          {emp.currentProject || 'Bench'} • {emp.currentCustomer || 'Internal'}
+                                          {[emp.currentProject?.trim(), emp.currentCustomer?.trim()].filter(Boolean).join(' • ') || '—'}
                                         </dd>
                                       </div>
 
                                       <div>
                                         <dt className="text-[11px] font-medium text-[#64748B]">Deployable Roles</dt>
-                                        <dd className="mt-1 font-semibold text-[#0B1B4D]">
-                                          {emp.deployableRoles?.length ? emp.deployableRoles.join(', ') : 'Software Engineer'}
+                                        <dd className="mt-1">
+                                          <DeployableRolesGroup roles={emp.deployableRoles} maxVisible={3} />
                                         </dd>
                                       </div>
 
@@ -570,37 +720,47 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                                           {emp.technicalSkills?.length || 0} Standardized Skills
                                         </dd>
                                       </div>
+
+                                      <div>
+                                        <dt className="text-[11px] font-medium text-[#64748B]">Profile Completion</dt>
+                                        <dd className="mt-1 flex items-center gap-2">
+                                          <span className="font-bold text-[#0B1B4D]">
+                                            {emp.profileCompletion}%
+                                          </span>
+                                          <div className="w-16 h-1.5 rounded-full bg-[#E2E8F0] overflow-hidden">
+                                            <div
+                                              style={{ width: `${emp.profileCompletion}%` }}
+                                              className={`h-full rounded-full ${
+                                                emp.profileCompletion >= 80
+                                                  ? 'bg-[#10B981]'
+                                                  : emp.profileCompletion >= 50
+                                                  ? 'bg-[#F59E0B]'
+                                                  : 'bg-[#EF4444]'
+                                              }`}
+                                            />
+                                          </div>
+                                          {emp.profileCompletion >= 80 ? (
+                                            <span title={emp.status} className="inline-flex">
+                                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                            </span>
+                                          ) : (
+                                            <span title={emp.status} className="inline-flex">
+                                              <AlertCircle
+                                                className={`w-3.5 h-3.5 shrink-0 ${
+                                                  emp.profileCompletion >= 50 ? 'text-amber-500' : 'text-rose-500'
+                                                }`}
+                                              />
+                                            </span>
+                                          )}
+                                        </dd>
+                                      </div>
                                     </dl>
 
-                                    {/* All Skills List in Expandable Drawer */}
-                                    <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
-                                      <span className="text-[11px] font-semibold text-[#64748B] mr-1">Skills:</span>
-                                      {emp.technicalSkills.map((s) => (
-                                        <span
-                                          key={s.id}
-                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EFF6FF] text-[#1E40AF] text-[10px] font-medium border border-blue-100"
-                                        >
-                                          <SkillIcon name={s.name} category={s.category} size="xs" />
-                                          <span>{s.name} ({s.proficiency})</span>
-                                        </span>
-                                      ))}
-                                    </div>
+                                    {/* Skills grouped by category with 12-limit toggle */}
+                                    <ExpandedSkillsSection skills={emp.technicalSkills} />
 
-                                    {/* Domain Expertise in Expandable Drawer */}
-                                    {emp.domainExpertise && emp.domainExpertise.length > 0 && (
-                                      <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
-                                        <span className="text-[11px] font-semibold text-[#64748B] mr-1">Domains:</span>
-                                        {emp.domainExpertise.map((d) => (
-                                          <span
-                                            key={d.id}
-                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[10px] font-semibold border border-indigo-100"
-                                          >
-                                            <Layers className="w-3 h-3 text-indigo-500" />
-                                            <span>{d.domain} ({d.proficiency})</span>
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
+                                    {/* Domain Expertise with 6-limit toggle */}
+                                    <ExpandedDomainsSection domains={emp.domainExpertise} />
                                   </div>
                                 </motion.div>
                               </td>
@@ -647,7 +807,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                           >
                             {emp.name}
                           </h4>
-                          <div className="text-xs text-[#64748B]">{emp.designation}</div>
+                          <div className="text-xs text-[#64748B]">{emp.designation?.trim() || '—'}</div>
                         </div>
                       </div>
                       <span className="text-xs font-semibold text-[#64748B] bg-slate-100 px-2 py-0.5 rounded">
@@ -658,33 +818,27 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                     <div className="mt-3 pt-3 border-t border-slate-100 space-y-2 text-xs">
                       <div className="flex justify-between text-[#64748B]">
                         <span>Practice:</span>
-                        <span className="font-medium text-[#0B1B4D]">{emp.businessUnit}</span>
+                        <span className="font-medium text-[#0B1B4D]">{emp.businessUnit?.trim() || '—'}</span>
                       </div>
                       <div className="flex justify-between text-[#64748B]">
                         <span>Experience:</span>
-                        <span className="font-medium text-[#0B1B4D]">{emp.totalExperience} Years</span>
+                        <span className="font-medium text-[#0B1B4D]">{emp.totalExperience || 0} Years</span>
                       </div>
                       <div className="flex justify-between text-[#64748B]">
                         <span>Location:</span>
-                        <span className="font-medium text-[#0B1B4D]">{emp.location}</span>
+                        <span className="font-medium text-[#0B1B4D]">{emp.location?.trim() || '—'}</span>
                       </div>
                     </div>
 
                     <div className="mt-3">
                       <div className="text-[11px] font-semibold text-[#64748B] uppercase mb-1.5">
-                        Skills
+                        Skills ({emp.technicalSkills?.length || 0})
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {emp.technicalSkills.map((s) => (
-                          <span
-                            key={s.id}
-                            className="inline-flex items-center gap-1 text-[11px] bg-[#EFF6FF] text-[#1E40AF] px-2 py-0.5 rounded-md border border-blue-100"
-                          >
-                            <SkillIcon name={s.name} category={s.category} size="xs" />
-                            {s.name}
-                          </span>
-                        ))}
-                      </div>
+                      <SkillChipGroup
+                        skills={emp.technicalSkills}
+                        maxVisible={3}
+                        popoverTitle={`${emp.name}'s Verified Skills`}
+                      />
                     </div>
                   </div>
 

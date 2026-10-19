@@ -16,6 +16,13 @@ export interface DropdownData {
   profileStatuses: string[];
 }
 
+export interface DropdownState {
+  data: DropdownData;
+  isLoading: boolean;
+  isError: boolean;
+  error: string | null;
+}
+
 const DEFAULT_DROPDOWNS: DropdownData = {
   practices: [],
   locations: [],
@@ -40,11 +47,25 @@ const DEFAULT_DROPDOWNS: DropdownData = {
   profileStatuses: ['Complete', 'In Progress', 'Needs Review'],
 };
 
-const CACHE_KEY = 'nexus_db_dropdowns_v6';
+const CACHE_KEY = 'nexus_db_dropdowns_v7';
+
+function deduplicateStrings(arr: string[]): string[] {
+  const seen = new Map<string, string>();
+  for (const item of arr) {
+    const normalized = item.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (normalized && !seen.has(normalized)) {
+      seen.set(normalized, item.trim().replace(/\s+/g, ' '));
+    }
+  }
+  return Array.from(seen.values());
+}
 
 class DropdownService {
   private cache: DropdownData = DEFAULT_DROPDOWNS;
-  private listeners: Set<(data: DropdownData) => void> = new Set();
+  private listeners: Set<(state: DropdownState) => void> = new Set();
+  private _isLoading: boolean = true;
+  private _isError: boolean = false;
+  private _error: string | null = null;
   private isLoaded: boolean = false;
   private fetchPromise: Promise<DropdownData> | null = null;
 
@@ -59,29 +80,40 @@ class DropdownService {
       console.warn('Error reading cached dropdowns:', e);
     }
 
-    // Immediately trigger background fetch from SQLite database
     this.fetchAll();
+  }
+
+  getState(): DropdownState {
+    return {
+      data: this.cache,
+      isLoading: this._isLoading,
+      isError: this._isError,
+      error: this._error,
+    };
   }
 
   get(): DropdownData {
     return this.cache;
   }
 
-  subscribe(listener: (data: DropdownData) => void): () => void {
+  subscribe(listener: (state: DropdownState) => void): () => void {
     this.listeners.add(listener);
-    listener(this.cache);
+    listener(this.getState());
     return () => {
       this.listeners.delete(listener);
     };
   }
 
   private notify() {
-    this.listeners.forEach((listener) => listener(this.cache));
+    const state = this.getState();
+    this.listeners.forEach((listener) => listener(state));
   }
 
   async addOption(type: string, value: string, email?: string): Promise<boolean> {
     try {
-      await api.addDropdownOption(type, value, email);
+      const trimmed = value.trim().replace(/\s+/g, ' ');
+      if (!trimmed) return false;
+      await api.addDropdownOption(type, trimmed, email?.trim());
       await this.fetchAll();
       return true;
     } catch (err) {
@@ -93,26 +125,34 @@ class DropdownService {
   async fetchAll(): Promise<DropdownData> {
     if (this.fetchPromise) return this.fetchPromise;
 
+    this._isLoading = true;
+    this._isError = false;
+    this._error = null;
+    this.notify();
+
     this.fetchPromise = api
       .getDropdowns()
       .then((res: DropdownOptionsResponse) => {
         const data: DropdownData = {
-          practices: res.practices || res.businessUnits || [],
-          locations: res.locations || [],
-          designations: res.designations || [],
-          owlsureDesignations: res.owlsureDesignations || [],
-          currentRoles: res.currentRoles || [],
-          deployableRoles: res.deployableRoles || [],
-          projects: res.projects || [],
-          customers: res.customers || [],
-          managers: res.managers || [],
-          skillCategories: res.skillCategories && res.skillCategories.length > 0 ? res.skillCategories : DEFAULT_DROPDOWNS.skillCategories,
-          domains: res.domains || [],
+          practices: deduplicateStrings(res.practices || res.businessUnits || []),
+          locations: deduplicateStrings(res.locations || []),
+          designations: deduplicateStrings(res.designations || []),
+          owlsureDesignations: deduplicateStrings(res.owlsureDesignations || []),
+          currentRoles: deduplicateStrings(res.currentRoles || []),
+          deployableRoles: deduplicateStrings(res.deployableRoles || []),
+          projects: deduplicateStrings(res.projects || []),
+          customers: deduplicateStrings(res.customers || []),
+          managers: deduplicateStrings(res.managers || []),
+          skillCategories: res.skillCategories && res.skillCategories.length > 0 ? deduplicateStrings(res.skillCategories) : DEFAULT_DROPDOWNS.skillCategories,
+          domains: deduplicateStrings(res.domains || []),
           proficiencies: res.proficiencies && res.proficiencies.length > 0 ? res.proficiencies : DEFAULT_DROPDOWNS.proficiencies,
           profileStatuses: res.profileStatuses && res.profileStatuses.length > 0 ? res.profileStatuses : DEFAULT_DROPDOWNS.profileStatuses,
         };
         this.cache = data;
         this.isLoaded = true;
+        this._isLoading = false;
+        this._isError = false;
+        this._error = null;
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify(data));
         } catch {
@@ -123,6 +163,10 @@ class DropdownService {
       })
       .catch((err) => {
         console.warn('Error loading dropdown options from SQLite DB:', err);
+        this._isLoading = false;
+        this._isError = true;
+        this._error = err instanceof Error ? err.message : 'Failed to load dropdown options';
+        this.notify();
         return this.cache;
       })
       .finally(() => {

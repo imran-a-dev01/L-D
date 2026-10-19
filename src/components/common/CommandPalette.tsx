@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X, User, Briefcase, Layers, ArrowRight } from 'lucide-react';
+import { Search, X, Home, CheckCircle2, Layers, ArrowRight, BarChart3 } from 'lucide-react';
 import { Employee } from '../../types/employee';
 import { SkillIcon } from './SkillIcon';
 
@@ -9,7 +9,7 @@ interface CommandPaletteProps {
   onClose: () => void;
   employees: Employee[];
   onSelectEmployee: (emp: Employee) => void;
-  onNavigate: (view: 'dashboard' | 'create-employee' | 'skills' | 'login') => void;
+  onNavigate: (path: string) => void;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -92,27 +92,37 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 Quick Navigation
               </div>
               <button
-                onClick={() => { onNavigate('dashboard'); onClose(); }}
+                onClick={() => { onNavigate('/admin'); onClose(); }}
                 className="w-full flex items-center justify-between px-3 py-2 text-sm text-[#0B1B4D] hover:bg-blue-50/70 hover:text-[#1265FF] rounded-lg transition-colors group"
               >
                 <div className="flex items-center gap-2.5">
-                  <Briefcase className="w-4 h-4 text-[#64748B] group-hover:text-[#1265FF]" />
-                  <span>Employee Skill Directory</span>
+                  <Home className="w-4 h-4 text-[#64748B] group-hover:text-[#1265FF]" />
+                  <span>Overview Dashboard</span>
                 </div>
                 <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#1265FF]" />
               </button>
               <button
-                onClick={() => { onNavigate('create-employee'); onClose(); }}
+                onClick={() => { onNavigate('/admin/profile-complete'); onClose(); }}
                 className="w-full flex items-center justify-between px-3 py-2 text-sm text-[#0B1B4D] hover:bg-blue-50/70 hover:text-[#1265FF] rounded-lg transition-colors group"
               >
                 <div className="flex items-center gap-2.5">
-                  <User className="w-4 h-4 text-[#64748B] group-hover:text-[#1265FF]" />
-                  <span>Create Employee Profile</span>
+                  <CheckCircle2 className="w-4 h-4 text-[#64748B] group-hover:text-[#1265FF]" />
+                  <span>Profile Complete Intelligence</span>
                 </div>
                 <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#1265FF]" />
               </button>
               <button
-                onClick={() => { onNavigate('skills'); onClose(); }}
+                onClick={() => { onNavigate('/admin/skill-coverage'); onClose(); }}
+                className="w-full flex items-center justify-between px-3 py-2 text-sm text-[#0B1B4D] hover:bg-blue-50/70 hover:text-[#1265FF] rounded-lg transition-colors group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <BarChart3 className="w-4 h-4 text-[#64748B] group-hover:text-[#1265FF]" />
+                  <span>Skill Coverage Intelligence</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#1265FF]" />
+              </button>
+              <button
+                onClick={() => { onNavigate('/admin/skills'); onClose(); }}
                 className="w-full flex items-center justify-between px-3 py-2 text-sm text-[#0B1B4D] hover:bg-blue-50/70 hover:text-[#1265FF] rounded-lg transition-colors group"
               >
                 <div className="flex items-center gap-2.5">
@@ -149,7 +159,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                         <span className="ml-2 text-xs font-normal text-[#64748B]">({emp.id})</span>
                       </div>
                       <div className="text-xs text-[#64748B]">
-                        {emp.designation} • {emp.businessUnit} • {emp.location}
+                        {[emp.designation?.trim(), emp.businessUnit?.trim(), emp.location?.trim()].filter(Boolean).join(' • ') || '—'}
                       </div>
                     </div>
                   </div>

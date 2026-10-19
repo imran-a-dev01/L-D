@@ -240,7 +240,7 @@ export const ProfilesCompleteModal: React.FC<ProfilesCompleteModalProps> = ({
                         </span>
                       </div>
                       <div className="text-xs text-[#64748B] mt-0.5">
-                        {emp.designation} • <span className="text-[#0B1B4D] font-medium">{emp.businessUnit}</span>
+                        {[emp.designation?.trim(), emp.businessUnit?.trim()].filter(Boolean).join(' • ') || '—'}
                       </div>
                     </div>
                   </div>

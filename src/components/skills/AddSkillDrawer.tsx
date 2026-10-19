@@ -26,7 +26,7 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
   existingSkills = [],
 }) => {
   const { toast } = useToast();
-  const dropdownOptions = useDropdowns();
+  const { isLoading: dropdownsLoading, isError: dropdownsError, retry: retryDropdowns, ...dropdownOptions } = useDropdowns();
   const skillCategories = (dropdownOptions.skillCategories.length > 0 ? dropdownOptions.skillCategories : ALL_CATEGORIES)
     .filter((c) => c !== 'Domain Expertise');
   const proficiencyLevels = dropdownOptions.proficiencies.length > 0 ? dropdownOptions.proficiencies : [...PROFICIENCY_LEVELS];
@@ -39,7 +39,7 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
 
   const [proficiency, setProficiency] = useState<ProficiencyLevel>('Intermediate');
   const [experienceYears, setExperienceYears] = useState<number>(2.0);
-  const [lastUsed, setLastUsed] = useState<string>('Oct 2026');
+  const [lastUsed, setLastUsed] = useState<string>('');
   const [lastProject, setLastProject] = useState('');
   const [specialization, setSpecialization] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -133,9 +133,9 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
       category,
       proficiency,
       experienceYears: Number(experienceYears) || 0,
-      lastUsed: lastUsed.trim() || 'Current',
-      lastProject: lastProject.trim() || 'Internal Engineering',
-      specialization: specialization.trim() || undefined,
+      lastUsed: lastUsed.trim(),
+      lastProject: lastProject.trim(),
+      specialization: specialization.trim(),
     };
 
     onAddSkill(newSkill);
@@ -146,6 +146,9 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
     setSelectedTechName('');
     setCustomTechInput('');
     setIsCustomMode(false);
+    setLastUsed('');
+    setLastProject('');
+    setSpecialization('');
     setErrorMsg('');
   };
 
@@ -243,6 +246,9 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
                 allowOther={true}
                 otherPlaceholder="Specify custom skill category..."
                 onSaveCustomOption={async (val) => dropdownService.addOption('skill_category', val)}
+                isLoading={dropdownsLoading}
+                isError={dropdownsError}
+                onRetry={retryDropdowns}
               />
             </div>
 

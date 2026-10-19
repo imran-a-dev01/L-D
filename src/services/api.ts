@@ -54,39 +54,13 @@ export interface DropdownOptionsResponse {
 }
 
 export const api = {
-  getToken(): string | null {
-    return localStorage.getItem('nexus_auth_token');
-  },
-
-  setToken(token: string) {
-    localStorage.setItem('nexus_auth_token', token);
-  },
-
-  removeToken() {
-    localStorage.removeItem('nexus_auth_token');
-    localStorage.removeItem('nexus_auth_user');
-  },
-
-  getUser(): UserProfile | null {
-    try {
-      const data = localStorage.getItem('nexus_auth_user');
-      return data ? JSON.parse(data) : null;
-    } catch {
-      return null;
-    }
-  },
-
-  setUser(user: UserProfile) {
-    localStorage.setItem('nexus_auth_user', JSON.stringify(user));
-  },
-
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const token = this.getToken();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string> || {}),
     };
 
+    const token = localStorage.getItem('nexus_token');
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -106,44 +80,19 @@ export const api = {
     return data as T;
   },
 
-  // Auth APIs
   async login(email: string, password: string): Promise<LoginResponse> {
     const res = await this.request<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-
     if (res.token) {
-      this.setToken(res.token);
-      this.setUser(res.user);
-    }
-
-    return res;
-  },
-
-  async getAuthStatus(): Promise<{ needsSetup: boolean }> {
-    const response = await fetch(`${API_BASE}/auth/status`);
-    return response.json();
-  },
-
-  async setupAdmin(name: string, email: string, password: string): Promise<LoginResponse> {
-    const res = await this.request<LoginResponse>('/auth/setup', {
-      method: 'POST',
-      body: JSON.stringify({ name, email, password }),
-    });
-    if (res.token) {
-      this.setToken(res.token);
-      this.setUser(res.user);
+      localStorage.setItem('nexus_token', res.token);
     }
     return res;
   },
 
-  async getMe(): Promise<{ user: UserProfile }> {
-    return this.request<{ user: UserProfile }>('/auth/me');
-  },
-
-  async logout(): Promise<void> {
-    this.removeToken();
+  logout() {
+    localStorage.removeItem('nexus_token');
   },
 
   // Master Dropdown Reference Data

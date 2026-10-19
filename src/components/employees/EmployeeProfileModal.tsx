@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, 
@@ -12,10 +12,15 @@ import {
   Building2,
   Award,
   Hash,
-  Share2
+  Share2,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Layers
 } from 'lucide-react';
 import { Employee } from '../../types/employee';
 import { SkillIcon } from '../common/SkillIcon';
+import { ChipList } from '../common/ChipList';
 import { useToast } from '../common/Toast';
 
 interface EmployeeProfileModalProps {
@@ -25,6 +30,13 @@ interface EmployeeProfileModalProps {
   onEdit: (employee: Employee) => void;
 }
 
+const PROFICIENCY_BADGES: Record<string, string> = {
+  Expert: 'bg-purple-50 text-purple-700 border-purple-200',
+  Advanced: 'bg-blue-50 text-blue-700 border-blue-200',
+  Intermediate: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  Beginner: 'bg-slate-50 text-slate-700 border-slate-200',
+};
+
 export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   employee,
   isOpen,
@@ -32,6 +44,10 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   onEdit,
 }) => {
   const { toast } = useToast();
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [skillSearch, setSkillSearch] = useState<string>('');
+  const [showAllDomains, setShowAllDomains] = useState<boolean>(false);
+
   // Lock background body scroll while modal is open
   useEffect(() => {
     if (isOpen) {
@@ -43,6 +59,43 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     }
   }, [isOpen]);
 
+  // Reset local search and category when switching employees
+  useEffect(() => {
+    setSelectedCategory('All');
+    setSkillSearch('');
+    setShowAllDomains(false);
+  }, [employee?.id]);
+
+  // Category counts for Verified Technical Skills
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (employee?.technicalSkills || []).forEach((s) => {
+      const cat = s.category?.trim();
+      if (cat) {
+        counts[cat] = (counts[cat] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [employee?.technicalSkills]);
+
+  const categories = useMemo(() => {
+    return ['All', ...Object.keys(categoryCounts).sort()];
+  }, [categoryCounts]);
+
+  const filteredSkills = useMemo(() => {
+    let list = employee?.technicalSkills || [];
+    if (selectedCategory !== 'All') {
+      list = list.filter((s) => s.category?.trim() === selectedCategory);
+    }
+    if (skillSearch.trim()) {
+      const q = skillSearch.toLowerCase().trim();
+      list = list.filter(
+        (s) => s.name.toLowerCase().includes(q) || (s.category || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [employee?.technicalSkills, selectedCategory, skillSearch]);
+
   if (!isOpen || !employee) return null;
 
   return createPortal(
@@ -51,8 +104,8 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         className="bg-white rounded-3xl shadow-2xl border border-[#E3EAF5] w-full max-w-3xl max-h-[min(90vh,760px)] overflow-y-auto flex flex-col justify-between"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
-        <div className="p-6 border-b border-[#E3EAF5] flex items-start justify-between bg-gradient-to-r from-blue-50/50 via-white to-slate-50/50 rounded-t-3xl">
+        {/* Sticky Modal Header with Name, ID, status & Actions */}
+        <div className="sticky top-0 z-30 p-6 border-b border-[#E3EAF5] flex items-start justify-between bg-white/95 backdrop-blur-md rounded-t-3xl shadow-2xs">
           <div className="flex items-center gap-4">
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-extrabold text-xl shadow-xs ${
               employee.avatarColor || 'bg-blue-100 text-[#1265FF]'
@@ -67,19 +120,29 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 <span className="text-xs bg-slate-100 text-[#64748B] font-semibold px-2 py-0.5 rounded-md">
                   {employee.id}
                 </span>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <CheckCircle2 className="w-3 h-3" />
+                <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                  employee.status === 'Complete'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : employee.status === 'In Progress'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                }`}>
+                  {employee.status === 'Complete' ? (
+                    <CheckCircle2 className="w-3 h-3" />
+                  ) : (
+                    <AlertCircle className="w-3 h-3" />
+                  )}
                   {employee.status}
                 </span>
               </div>
               <div className="text-xs text-[#64748B] mt-0.5 flex flex-wrap items-center gap-3">
-                <span className="font-semibold text-[#1265FF]">{employee.designation}</span>
+                <span className="font-semibold text-[#1265FF]">{employee.designation?.trim() || '—'}</span>
                 <span>•</span>
-                <span>{employee.businessUnit}</span>
+                <span>{employee.businessUnit?.trim() || '—'}</span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
                   <MapPin className="w-3 h-3 text-slate-400" />
-                  {employee.location}
+                  {employee.location?.trim() || '—'}
                 </span>
               </div>
             </div>
@@ -114,23 +177,23 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 space-y-6">
-          {/* Key Metric Snapshot */}
+          {/* Key Metric Snapshot - Stat Cards with Real Counts */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 bg-[#F8FAFD] rounded-xl border border-[#E3EAF5]">
               <div className="text-[11px] text-[#64748B] font-semibold">Total Experience</div>
-              <div className="text-lg font-bold text-[#0B1B4D] mt-0.5">{employee.totalExperience} Years</div>
+              <div className="text-lg font-bold text-[#0B1B4D] mt-0.5">{employee.totalExperience || 0} Years</div>
             </div>
             <div className="p-3 bg-[#F8FAFD] rounded-xl border border-[#E3EAF5]">
               <div className="text-[11px] text-[#64748B] font-semibold">Profile Completion</div>
-              <div className="text-lg font-bold text-emerald-600 mt-0.5">{employee.profileCompletion}%</div>
+              <div className="text-lg font-bold text-emerald-600 mt-0.5">{employee.profileCompletion || 0}%</div>
             </div>
             <div className="p-3 bg-[#F8FAFD] rounded-xl border border-[#E3EAF5]">
               <div className="text-[11px] text-[#64748B] font-semibold">Technical Skills</div>
-              <div className="text-lg font-bold text-[#1265FF] mt-0.5">{employee.technicalSkills.length} Tracked</div>
+              <div className="text-lg font-bold text-[#1265FF] mt-0.5">{employee.technicalSkills?.length || 0} Tracked</div>
             </div>
             <div className="p-3 bg-[#F8FAFD] rounded-xl border border-[#E3EAF5]">
               <div className="text-[11px] text-[#64748B] font-semibold">Deployable Roles</div>
-              <div className="text-lg font-bold text-purple-600 mt-0.5">{employee.deployableRoles.length} Active</div>
+              <div className="text-lg font-bold text-purple-600 mt-0.5">{employee.deployableRoles?.length || 0} Active</div>
             </div>
           </div>
 
@@ -146,75 +209,185 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               </div>
               <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-[#64748B]">Reporting Manager:</span>
-                <span className="font-semibold text-[#0B1B4D]">{employee.reportingManager}</span>
+                <span className="font-semibold text-[#0B1B4D]">
+                  {employee.reportingManager?.trim() ? (
+                    <span className="text-right">
+                      <span>{employee.reportingManager.trim()}</span>
+                      {employee.reportingManagerEmail?.trim() && (
+                        <span className="block text-[11px] text-[#64748B] font-normal">{employee.reportingManagerEmail.trim()}</span>
+                      )}
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </span>
               </div>
               <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-[#64748B]">Current Project:</span>
-                <span className="font-semibold text-[#0B1B4D]">{employee.currentProject}</span>
+                <span className="font-semibold text-[#0B1B4D]">{employee.currentProject?.trim() || '—'}</span>
               </div>
               <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-[#64748B]">Current Customer:</span>
-                <span className="font-semibold text-[#0B1B4D]">{employee.currentCustomer}</span>
+                <span className="font-semibold text-[#0B1B4D]">{employee.currentCustomer?.trim() || '—'}</span>
               </div>
               <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-[#64748B]">Current Role:</span>
-                <span className="font-semibold text-[#0B1B4D]">{employee.currentRole}</span>
+                <span className="font-semibold text-[#0B1B4D]">{employee.currentRole?.trim() || '—'}</span>
               </div>
               <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-[#64748B]">OwlSure Designation:</span>
-                <span className="font-semibold text-[#0B1B4D]">{employee.owlSureDesignation}</span>
+                <span className="font-semibold text-[#0B1B4D]">{employee.owlSureDesignation?.trim() || '—'}</span>
               </div>
             </div>
 
+            {/* Deployable Roles as Chips with Show All Toggle */}
             <div className="pt-2">
-              <div className="text-[11px] font-semibold text-[#64748B] mb-2">Deployable Roles:</div>
-              <div className="flex flex-wrap gap-2">
-                {employee.deployableRoles.map((r) => (
-                  <span key={r} className="px-3 py-1 rounded-lg bg-blue-50 text-[#1265FF] border border-blue-200 text-xs font-semibold">
+              <div className="text-[11px] font-semibold text-[#64748B] mb-2">
+                Deployable Roles ({employee.deployableRoles?.length || 0}):
+              </div>
+              <ChipList
+                items={employee.deployableRoles || []}
+                limit={10}
+                emptyText="—"
+                renderItem={(r) => (
+                  <span
+                    key={r}
+                    className="px-3 py-1 rounded-lg bg-blue-50 text-[#1265FF] border border-blue-200 text-xs font-semibold"
+                  >
                     {r}
                   </span>
-                ))}
-              </div>
+                )}
+              />
             </div>
           </div>
 
-          {/* Technical Skills Table */}
+          {/* Verified Technical Skills Section with Category Filter & Search */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider">
-              Verified Technical Skills ({employee.technicalSkills.length})
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {employee.technicalSkills.map((s) => (
-                <div key={s.id} className="p-3 bg-[#F8FAFD] rounded-xl border border-[#E3EAF5] flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <SkillIcon name={s.name} category={s.category} size="md" />
-                    <div>
-                      <div className="font-bold text-xs text-[#0B1B4D]">{s.name}</div>
-                      <div className="text-[11px] text-[#64748B]">{s.category} • {s.experienceYears}y exp</div>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-white border border-[#E3EAF5] text-[#0B1B4D]">
-                    {s.proficiency}
-                  </span>
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider">
+                Verified Technical Skills ({employee.technicalSkills?.length || 0})
+              </h4>
+            </div>
+
+            {/* Category Filter Pills & Search Input */}
+            <div className="space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                  {categories.map((cat) => {
+                    const count = cat === 'All' ? employee.technicalSkills?.length || 0 : categoryCounts[cat] || 0;
+                    const isSelected = selectedCategory === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#1265FF] text-white shadow-xs'
+                            : 'bg-slate-100 text-[#64748B] hover:bg-slate-200/80 hover:text-[#0B1B4D]'
+                        }`}
+                      >
+                        {cat} ({count})
+                      </button>
+                    );
+                  })}
                 </div>
-              ))}
+
+                {/* Search input appears only when skills > 8 */}
+                {(employee.technicalSkills?.length || 0) > 8 && (
+                  <div className="relative w-full sm:w-48 shrink-0">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={skillSearch}
+                      onChange={(e) => setSkillSearch(e.target.value)}
+                      placeholder="Search skills..."
+                      className="w-full pl-8 pr-3 py-1 bg-white border border-[#DFE5EE] rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#1265FF]"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 2-Column Responsive Grid of Skill Cards */}
+              {filteredSkills.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400 italic bg-[#F8FAFD] rounded-xl border border-dashed border-[#DFE5EE]">
+                  {employee.technicalSkills?.length === 0
+                    ? '—'
+                    : 'No skills found matching search or category'}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
+                  {filteredSkills.map((s) => (
+                    <div
+                      key={s.id || s.name}
+                      className="p-3 bg-[#F8FAFD] hover:bg-white hover:shadow-xs rounded-xl border border-[#E3EAF5] flex items-center justify-between transition-all"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                        <SkillIcon name={s.name} category={s.category} size="md" />
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs text-[#0B1B4D] truncate" title={s.name}>
+                            {s.name}
+                          </div>
+                          <div className="text-[11px] text-[#64748B] truncate">
+                            {s.category ? `${s.category} • ` : ''}{s.experienceYears || 0}y exp
+                          </div>
+                        </div>
+                      </div>
+                      <span
+                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border shrink-0 ${
+                          PROFICIENCY_BADGES[s.proficiency] || 'bg-slate-50 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {s.proficiency || '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Domain Expertise */}
-          {employee.domainExpertise && employee.domainExpertise.length > 0 && (
-            <div className="space-y-3">
+          {/* Domain & Industry Depth Section with 2-Column Grid and Show All Toggle */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider">
-                Domain & Industry Depth
+                Domain & Industry Depth ({employee.domainExpertise?.length || 0})
               </h4>
+              {(employee.domainExpertise?.length || 0) > 6 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllDomains(!showAllDomains)}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1265FF] hover:underline cursor-pointer"
+                >
+                  {showAllDomains ? (
+                    <>
+                      <span>Show less</span>
+                      <ChevronUp className="w-3 h-3" />
+                    </>
+                  ) : (
+                    <>
+                      <span>Show all ({employee.domainExpertise?.length || 0})</span>
+                      <ChevronDown className="w-3 h-3" />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {(!employee.domainExpertise || employee.domainExpertise.length === 0) ? (
+              <div className="p-4 text-center text-xs text-slate-400 italic bg-[#F8FAFD] rounded-xl border border-dashed border-[#DFE5EE]">
+                —
+              </div>
+            ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {employee.domainExpertise.map((d) => (
-                  <div key={d.id} className="p-3 bg-white rounded-xl border border-[#E3EAF5] text-xs">
-                    <div className="font-bold text-[#0B1B4D]">
-                      {d.domain === 'Others' ? d.customDomain : d.domain}
+                {(showAllDomains ? employee.domainExpertise : employee.domainExpertise.slice(0, 6)).map((d) => (
+                  <div key={d.id || d.domain} className="p-3 bg-white rounded-xl border border-[#E3EAF5] text-xs">
+                    <div className="font-bold text-[#0B1B4D] flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>{d.domain === 'Others' ? d.customDomain || '—' : d.domain || '—'}</span>
                     </div>
                     <div className="text-[#64748B] mt-0.5">
-                      {d.experienceYears} Years • {d.proficiency}
+                      {d.experienceYears || 0} Years • {d.proficiency || '—'}
                     </div>
                     {d.specialization && (
                       <div className="text-slate-500 text-[11px] mt-1 italic">
@@ -224,33 +397,49 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Upskilling & Interests */}
+          {/* Upskilling & Interests: Immediate & Learning Technologies with ChipList */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-3.5 bg-blue-50/50 rounded-xl border border-blue-100">
-              <div className="text-xs font-bold text-[#1265FF] mb-2">Immediate Technologies</div>
-              <div className="flex flex-wrap gap-1.5">
-                {employee.immediateTechnologies.map((t) => (
-                  <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded-md text-xs font-semibold text-[#0B1B4D] border border-blue-200">
+              <div className="text-xs font-bold text-[#1265FF] mb-2">
+                Immediate Technologies ({employee.immediateTechnologies?.length || 0})
+              </div>
+              <ChipList
+                items={employee.immediateTechnologies || []}
+                limit={10}
+                emptyText="—"
+                renderItem={(t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded-md text-xs font-semibold text-[#0B1B4D] border border-blue-200"
+                  >
                     <SkillIcon name={t} size="xs" />
                     {t}
                   </span>
-                ))}
-              </div>
+                )}
+              />
             </div>
 
             <div className="p-3.5 bg-purple-50/50 rounded-xl border border-purple-100">
-              <div className="text-xs font-bold text-purple-700 mb-2">Learning Technologies</div>
-              <div className="flex flex-wrap gap-1.5">
-                {employee.learningTechnologies.map((t) => (
-                  <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded-md text-xs font-semibold text-purple-700 border border-purple-200">
+              <div className="text-xs font-bold text-purple-700 mb-2">
+                Learning Technologies ({employee.learningTechnologies?.length || 0})
+              </div>
+              <ChipList
+                items={employee.learningTechnologies || []}
+                limit={10}
+                emptyText="—"
+                renderItem={(t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded-md text-xs font-semibold text-purple-700 border border-purple-200"
+                  >
                     <SkillIcon name={t} size="xs" />
                     {t}
                   </span>
-                ))}
-              </div>
+                )}
+              />
             </div>
           </div>
         </div>

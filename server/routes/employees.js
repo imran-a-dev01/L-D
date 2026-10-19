@@ -43,26 +43,45 @@ function hydrateEmployee(empRow) {
 
   return {
     id: empRow.id,
-    name: empRow.name,
-    email: empRow.email,
-    designation: empRow.designation,
-    businessUnit: empRow.business_unit,
-    reportingManager: empRow.reporting_manager,
-    currentProject: empRow.current_project,
-    currentCustomer: empRow.current_customer,
-    location: empRow.location,
-    totalExperience: empRow.total_experience,
-    currentRole: empRow.current_role,
-    owlSureDesignation: empRow.owlsure_designation,
-    profileCompletion: empRow.profile_completion,
-    status: empRow.status,
-    avatarColor: empRow.avatar_color,
-    updatedAt: empRow.updated_at,
-    deployableRoles,
-    technicalSkills,
-    immediateTechnologies,
-    learningTechnologies,
-    domainExpertise,
+    name: empRow.name || '',
+    email: empRow.email || '',
+    designation: empRow.designation || '',
+    businessUnit: empRow.business_unit || '',
+    reportingManager: empRow.reporting_manager || '',
+    reportingManagerEmail: empRow.reporting_manager_email || '',
+    currentProject: empRow.current_project || '',
+    currentCustomer: empRow.current_customer || '',
+    location: empRow.location || '',
+    totalExperience: Number(empRow.total_experience) || 0,
+    currentRole: empRow.current_role || '',
+    owlSureDesignation: empRow.owlsure_designation || '',
+    profileCompletion: Number(empRow.profile_completion) || 0,
+    status: empRow.status || '',
+    avatarColor: empRow.avatar_color || 'bg-blue-100 text-[#1265FF]',
+    updatedAt: empRow.updated_at || '',
+    deployableRoles: deployableRoles || [],
+    technicalSkills: (technicalSkills || []).map(s => ({
+      id: s.id,
+      name: s.name || '',
+      category: s.category || '',
+      proficiency: s.proficiency || '',
+      experienceYears: Number(s.experienceYears) || 0,
+      lastUsed: s.lastUsed || '',
+      lastProject: s.lastProject || '',
+      specialization: s.specialization || ''
+    })),
+    immediateTechnologies: immediateTechnologies || [],
+    learningTechnologies: learningTechnologies || [],
+    domainExpertise: (domainExpertise || []).map(d => ({
+      id: d.id,
+      domain: d.domain || '',
+      customDomain: d.customDomain || '',
+      experienceYears: Number(d.experienceYears) || 0,
+      proficiency: d.proficiency || '',
+      lastUsed: d.lastUsed || '',
+      lastProject: d.lastProject || '',
+      specialization: d.specialization || ''
+    })),
   };
 }
 
@@ -100,14 +119,17 @@ function autoRecordMasterLookups(emp) {
   if (emp.owlSureDesignation && emp.owlSureDesignation.trim() && emp.owlSureDesignation !== '__OTHER__' && emp.owlSureDesignation.toLowerCase() !== 'other') {
     db.prepare('INSERT OR IGNORE INTO owlsure_designations (name) VALUES (?)').run(emp.owlSureDesignation.trim());
   }
-  if (emp.reportingManager && emp.reportingManager.trim() && emp.reportingManager !== '__OTHER__' && emp.reportingManager.toLowerCase() !== 'other') {
-    const mgrMatch = emp.reportingManager.match(/^(.+?)\s*\((.+?@.+?)\)$/);
-    if (mgrMatch) {
-      db.prepare('INSERT OR IGNORE INTO managers (name, email) VALUES (?, ?)').run(mgrMatch[1].trim(), mgrMatch[2].trim());
-    } else {
-      const email = emp.reportingManager.includes('@') ? emp.reportingManager.trim() : '';
-      db.prepare('INSERT OR IGNORE INTO managers (name, email) VALUES (?, ?)').run(emp.reportingManager.trim(), email);
+  let managerName = (emp.reportingManager || '').trim();
+  let managerEmail = (emp.reportingManagerEmail || '').trim();
+  const mgrMatch = managerName.match(/^(.+?)\s*\((.+?@.+?)\)$/);
+  if (mgrMatch) {
+    managerName = mgrMatch[1].trim();
+    if (!managerEmail) {
+      managerEmail = mgrMatch[2].trim();
     }
+  }
+  if (managerName && managerName !== '__OTHER__' && managerName.toLowerCase() !== 'other') {
+    db.prepare('INSERT OR IGNORE INTO managers (name, email) VALUES (?, ?)').run(managerName, managerEmail);
   }
   if (emp.currentProject && emp.currentProject.trim() && emp.currentProject !== '__OTHER__' && emp.currentProject.toLowerCase() !== 'other') {
     db.prepare('INSERT OR IGNORE INTO projects (name) VALUES (?)').run(emp.currentProject.trim());
@@ -125,9 +147,10 @@ function autoRecordMasterLookups(emp) {
     const insertGlobalSkill = db.prepare('INSERT OR IGNORE INTO skills (id, name, slug, category, description, is_verified) VALUES (?, ?, ?, ?, ?, 1)');
     emp.technicalSkills.forEach(s => {
       if (s && s.name && s.name.trim() && s.name !== '__OTHER__' && s.name.toLowerCase() !== 'other') {
+        if (!s.category || !s.category.trim()) return;
         const slug = s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         const skillId = 'skill_' + slug;
-        insertGlobalSkill.run(skillId, s.name.trim(), slug, s.category || 'Frontend', '');
+        insertGlobalSkill.run(skillId, s.name.trim(), slug, s.category.trim(), '');
       }
     });
   }
@@ -240,55 +263,95 @@ router.get('/:id', authenticateToken, (req, res) => {
 router.post('/', authenticateToken, requirePermission('employee:create'), (req, res) => {
   const emp = req.body;
 
-  if (!emp.id || !emp.name || !emp.email) {
-    return res.status(400).json({ error: 'Employee ID, Name and Email are required' });
+  if (!emp.id || typeof emp.id !== 'string' || !emp.id.trim()) {
+    return res.status(400).json({ error: 'Employee ID is required' });
   }
 
-  const existing = db.prepare('SELECT id FROM employees WHERE LOWER(id) = LOWER(?) OR LOWER(email) = LOWER(?)').get(emp.id, emp.email);
-  if (existing) {
-    return res.status(409).json({ error: 'Employee with this ID or Email already exists' });
+  const normalizedId = emp.id.trim().toUpperCase();
+  if (/\s/.test(normalizedId)) {
+    return res.status(400).json({ error: 'Employee ID must not contain spaces' });
+  }
+
+  if (!emp.name || typeof emp.name !== 'string' || !emp.name.trim()) {
+    return res.status(400).json({ error: 'Employee Name is required' });
+  }
+
+  if (!emp.email || typeof emp.email !== 'string' || !emp.email.trim()) {
+    return res.status(400).json({ error: 'Employee Email is required' });
+  }
+
+  const trimmedEmail = emp.email.trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmedEmail)) {
+    return res.status(400).json({ error: 'Valid work email address is required' });
+  }
+
+  const existingId = db.prepare('SELECT id FROM employees WHERE id = ?').get(normalizedId);
+  if (existingId) {
+    return res.status(409).json({ error: `Employee with ID "${normalizedId}" already exists` });
+  }
+
+  const existingEmail = db.prepare('SELECT id FROM employees WHERE LOWER(email) = LOWER(?)').get(trimmedEmail);
+  if (existingEmail) {
+    return res.status(409).json({ error: 'Another employee with this email already exists' });
   }
 
   const completion = calculateCompletion(emp);
+  const computedStatus = completion >= 85 ? 'Complete' : (completion >= 65 ? 'In Progress' : 'Needs Review');
   const updatedAt = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
   });
+
+  let managerName = (emp.reportingManager || '').trim();
+  let managerEmail = (emp.reportingManagerEmail || '').trim();
+  const mgrMatch = managerName.match(/^(.+?)\s*\((.+?@.+?)\)$/);
+  if (mgrMatch) {
+    managerName = mgrMatch[1].trim();
+    if (!managerEmail) {
+      managerEmail = mgrMatch[2].trim();
+    }
+  }
 
   const createTransaction = db.transaction(() => {
     // 1. Insert main employee
     db.prepare(`
       INSERT INTO employees (
-        id, name, email, designation, business_unit, reporting_manager,
+        id, name, email, designation, business_unit, reporting_manager, reporting_manager_email,
         current_project, current_customer, location, total_experience,
         current_role, owlsure_designation, profile_completion, status,
         avatar_color, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      emp.id.trim().toUpperCase(),
+      normalizedId,
       emp.name.trim(),
-      emp.email.trim(),
-      emp.designation || '',
-      emp.businessUnit || '',
-      emp.reportingManager || '',
-      emp.currentProject || '',
-      emp.currentCustomer || '',
-      emp.location || '',
+      trimmedEmail,
+      (emp.designation || '').trim(),
+      (emp.businessUnit || '').trim(),
+      managerName,
+      managerEmail,
+      (emp.currentProject || '').trim(),
+      (emp.currentCustomer || '').trim(),
+      (emp.location || '').trim(),
       Number(emp.totalExperience) || 0.0,
-      emp.currentRole || '',
-      emp.owlSureDesignation || '',
+      (emp.currentRole || '').trim(),
+      (emp.owlSureDesignation || '').trim(),
       completion,
-      emp.status || (completion >= 85 ? 'Complete' : completion >= 65 ? 'In Progress' : 'Needs Review'),
+      computedStatus,
       emp.avatarColor || 'bg-blue-100 text-[#1265FF]',
       updatedAt
     );
 
     // Auto-record all custom entered fields into master SQLite lookup tables
-    autoRecordMasterLookups(emp);
+    autoRecordMasterLookups({ ...emp, reportingManager: managerName, reportingManagerEmail: managerEmail });
 
     // 2. Deployable roles
     if (Array.isArray(emp.deployableRoles)) {
       const insertRole = db.prepare('INSERT OR IGNORE INTO employee_deployable_roles (employee_id, role_name) VALUES (?, ?)');
-      emp.deployableRoles.forEach(r => insertRole.run(emp.id, r));
+      emp.deployableRoles.forEach(r => {
+        if (r && typeof r === 'string' && r.trim()) {
+          insertRole.run(normalizedId, r.trim());
+        }
+      });
     }
 
     // 3. Technical skills
@@ -299,24 +362,35 @@ router.post('/', authenticateToken, requirePermission('employee:create'), (req, 
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       emp.technicalSkills.forEach(s => {
-        const skillId = s.id || `s_${Math.random().toString(36).substring(2, 8)}`;
-        insertSkill.run(
-          skillId, emp.id, s.name, s.category, s.proficiency || 'Intermediate',
-          Number(s.experienceYears) || 0, s.lastUsed || 'Current', s.lastProject || '', s.specialization || ''
-        );
+        const skillName = (s && (s.name || s.skill) ? (s.name || s.skill) : '').trim();
+        if (skillName) {
+          const skillId = s.id || `s_${Math.random().toString(36).substring(2, 8)}`;
+          insertSkill.run(
+            skillId, normalizedId, skillName, (s.category || '').trim(), (s.proficiency || '').trim(),
+            Number(s.experienceYears) || 0, (s.lastUsed || '').trim(), (s.lastProject || '').trim(), (s.specialization || '').trim()
+          );
+        }
       });
     }
 
     // 4. Immediate technologies
     if (Array.isArray(emp.immediateTechnologies)) {
       const insertImm = db.prepare('INSERT OR IGNORE INTO employee_immediate_technologies (employee_id, technology_name) VALUES (?, ?)');
-      emp.immediateTechnologies.forEach(t => insertImm.run(emp.id, t));
+      emp.immediateTechnologies.forEach(t => {
+        if (t && typeof t === 'string' && t.trim()) {
+          insertImm.run(normalizedId, t.trim());
+        }
+      });
     }
 
     // 5. Learning technologies
     if (Array.isArray(emp.learningTechnologies)) {
       const insertLearn = db.prepare('INSERT OR IGNORE INTO employee_learning_technologies (employee_id, technology_name) VALUES (?, ?)');
-      emp.learningTechnologies.forEach(t => insertLearn.run(emp.id, t));
+      emp.learningTechnologies.forEach(t => {
+        if (t && typeof t === 'string' && t.trim()) {
+          insertLearn.run(normalizedId, t.trim());
+        }
+      });
     }
 
     // 6. Domain expertise
@@ -327,19 +401,21 @@ router.post('/', authenticateToken, requirePermission('employee:create'), (req, 
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       emp.domainExpertise.forEach(d => {
-        const domainId = d.id || `d_${Math.random().toString(36).substring(2, 8)}`;
-        insertDomain.run(
-          domainId, emp.id, d.domain, d.customDomain || '',
-          Number(d.experienceYears) || 0, d.proficiency || 'Intermediate',
-          d.lastUsed || 'Current', d.lastProject || '', d.specialization || ''
-        );
+        if (d && (d.domain || d.customDomain)) {
+          const domainId = d.id || `d_${Math.random().toString(36).substring(2, 8)}`;
+          insertDomain.run(
+            domainId, normalizedId, (d.domain || '').trim(), (d.customDomain || '').trim(),
+            Number(d.experienceYears) || 0, (d.proficiency || '').trim(),
+            (d.lastUsed || '').trim(), (d.lastProject || '').trim(), (d.specialization || '').trim()
+          );
+        }
       });
     }
   });
 
   try {
     createTransaction();
-    const created = db.prepare('SELECT * FROM employees WHERE id = ?').get(emp.id.trim().toUpperCase());
+    const created = db.prepare('SELECT * FROM employees WHERE id = ?').get(normalizedId);
     return res.status(201).json({ employee: hydrateEmployee(created), message: 'Employee profile created successfully' });
   } catch (err) {
     console.error('Error creating employee:', err);
@@ -352,56 +428,93 @@ router.put('/:id', authenticateToken, requirePermission('employee:update'), (req
   const { id } = req.params;
   const emp = req.body;
 
-  const existing = db.prepare('SELECT id FROM employees WHERE LOWER(id) = LOWER(?)').get(id);
+  const existing = db.prepare('SELECT * FROM employees WHERE LOWER(id) = LOWER(?)').get(id);
   if (!existing) {
     return res.status(404).json({ error: 'Employee not found' });
   }
+  const storedId = existing.id;
+
+  if (!emp.name || typeof emp.name !== 'string' || !emp.name.trim()) {
+    return res.status(400).json({ error: 'Employee Name is required' });
+  }
+
+  if (!emp.email || typeof emp.email !== 'string' || !emp.email.trim()) {
+    return res.status(400).json({ error: 'Employee Email is required' });
+  }
+
+  const trimmedEmail = emp.email.trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmedEmail)) {
+    return res.status(400).json({ error: 'Valid work email address is required' });
+  }
+
+  // Check if another employee already uses this email
+  const existingEmail = db.prepare('SELECT id FROM employees WHERE LOWER(email) = LOWER(?) AND id != ?').get(trimmedEmail, storedId);
+  if (existingEmail) {
+    return res.status(409).json({ error: 'Another employee with this email already exists' });
+  }
 
   const completion = calculateCompletion(emp);
+  const computedStatus = completion >= 85 ? 'Complete' : (completion >= 65 ? 'In Progress' : 'Needs Review');
   const updatedAt = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
   });
 
+  let managerName = (emp.reportingManager || '').trim();
+  let managerEmail = (emp.reportingManagerEmail || '').trim();
+  const mgrMatch = managerName.match(/^(.+?)\s*\((.+?@.+?)\)$/);
+  if (mgrMatch) {
+    managerName = mgrMatch[1].trim();
+    if (!managerEmail) {
+      managerEmail = mgrMatch[2].trim();
+    }
+  }
+
   const updateTransaction = db.transaction(() => {
-    // 1. Update main employee
+    // 1. Update main employee using storedId
     db.prepare(`
       UPDATE employees SET
-        name = ?, email = ?, designation = ?, business_unit = ?, reporting_manager = ?,
+        name = ?, email = ?, designation = ?, business_unit = ?, reporting_manager = ?, reporting_manager_email = ?,
         current_project = ?, current_customer = ?, location = ?, total_experience = ?,
         current_role = ?, owlsure_designation = ?, profile_completion = ?, status = ?,
         avatar_color = ?, updated_at = ?
       WHERE id = ?
     `).run(
       emp.name.trim(),
-      emp.email.trim(),
-      emp.designation,
-      emp.businessUnit,
-      emp.reportingManager,
-      emp.currentProject || '',
-      emp.currentCustomer || '',
-      emp.location,
+      trimmedEmail,
+      (emp.designation || '').trim(),
+      (emp.businessUnit || '').trim(),
+      managerName,
+      managerEmail,
+      (emp.currentProject || '').trim(),
+      (emp.currentCustomer || '').trim(),
+      (emp.location || '').trim(),
       Number(emp.totalExperience) || 0.0,
-      emp.currentRole,
-      emp.owlSureDesignation,
+      (emp.currentRole || '').trim(),
+      (emp.owlSureDesignation || '').trim(),
       completion,
-      emp.status || (completion >= 85 ? 'Complete' : completion >= 65 ? 'In Progress' : 'Needs Review'),
-      emp.avatarColor || 'bg-blue-100 text-[#1265FF]',
+      computedStatus,
+      emp.avatarColor || existing.avatar_color || 'bg-blue-100 text-[#1265FF]',
       updatedAt,
-      id
+      storedId
     );
 
     // Auto-record all custom entered fields into master SQLite lookup tables
-    autoRecordMasterLookups(emp);
+    autoRecordMasterLookups({ ...emp, reportingManager: managerName, reportingManagerEmail: managerEmail });
 
-    // 2. Refresh deployable roles
-    db.prepare('DELETE FROM employee_deployable_roles WHERE employee_id = ?').run(id);
+    // 2. Refresh deployable roles using storedId
+    db.prepare('DELETE FROM employee_deployable_roles WHERE employee_id = ?').run(storedId);
     if (Array.isArray(emp.deployableRoles)) {
       const insertRole = db.prepare('INSERT OR IGNORE INTO employee_deployable_roles (employee_id, role_name) VALUES (?, ?)');
-      emp.deployableRoles.forEach(r => insertRole.run(id, r));
+      emp.deployableRoles.forEach(r => {
+        if (r && typeof r === 'string' && r.trim()) {
+          insertRole.run(storedId, r.trim());
+        }
+      });
     }
 
-    // 3. Refresh technical skills
-    db.prepare('DELETE FROM employee_skills WHERE employee_id = ?').run(id);
+    // 3. Refresh technical skills using storedId
+    db.prepare('DELETE FROM employee_skills WHERE employee_id = ?').run(storedId);
     if (Array.isArray(emp.technicalSkills)) {
       const insertSkill = db.prepare(`
         INSERT OR REPLACE INTO employee_skills (
@@ -409,30 +522,41 @@ router.put('/:id', authenticateToken, requirePermission('employee:update'), (req
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       emp.technicalSkills.forEach(s => {
-        const skillId = s.id || `s_${Math.random().toString(36).substring(2, 8)}`;
-        insertSkill.run(
-          skillId, id, s.name, s.category, s.proficiency || 'Intermediate',
-          Number(s.experienceYears) || 0, s.lastUsed || 'Current', s.lastProject || '', s.specialization || ''
-        );
+        const skillName = (s && (s.name || s.skill) ? (s.name || s.skill) : '').trim();
+        if (skillName) {
+          const skillId = s.id || `s_${Math.random().toString(36).substring(2, 8)}`;
+          insertSkill.run(
+            skillId, storedId, skillName, (s.category || '').trim(), (s.proficiency || '').trim(),
+            Number(s.experienceYears) || 0, (s.lastUsed || '').trim(), (s.lastProject || '').trim(), (s.specialization || '').trim()
+          );
+        }
       });
     }
 
-    // 4. Refresh immediate technologies
-    db.prepare('DELETE FROM employee_immediate_technologies WHERE employee_id = ?').run(id);
+    // 4. Refresh immediate technologies using storedId
+    db.prepare('DELETE FROM employee_immediate_technologies WHERE employee_id = ?').run(storedId);
     if (Array.isArray(emp.immediateTechnologies)) {
       const insertImm = db.prepare('INSERT OR IGNORE INTO employee_immediate_technologies (employee_id, technology_name) VALUES (?, ?)');
-      emp.immediateTechnologies.forEach(t => insertImm.run(id, t));
+      emp.immediateTechnologies.forEach(t => {
+        if (t && typeof t === 'string' && t.trim()) {
+          insertImm.run(storedId, t.trim());
+        }
+      });
     }
 
-    // 5. Refresh learning technologies
-    db.prepare('DELETE FROM employee_learning_technologies WHERE employee_id = ?').run(id);
+    // 5. Refresh learning technologies using storedId
+    db.prepare('DELETE FROM employee_learning_technologies WHERE employee_id = ?').run(storedId);
     if (Array.isArray(emp.learningTechnologies)) {
       const insertLearn = db.prepare('INSERT OR IGNORE INTO employee_learning_technologies (employee_id, technology_name) VALUES (?, ?)');
-      emp.learningTechnologies.forEach(t => insertLearn.run(id, t));
+      emp.learningTechnologies.forEach(t => {
+        if (t && typeof t === 'string' && t.trim()) {
+          insertLearn.run(storedId, t.trim());
+        }
+      });
     }
 
-    // 6. Refresh domain expertise
-    db.prepare('DELETE FROM employee_domain_expertise WHERE employee_id = ?').run(id);
+    // 6. Refresh domain expertise using storedId
+    db.prepare('DELETE FROM employee_domain_expertise WHERE employee_id = ?').run(storedId);
     if (Array.isArray(emp.domainExpertise)) {
       const insertDomain = db.prepare(`
         INSERT OR REPLACE INTO employee_domain_expertise (
@@ -440,19 +564,21 @@ router.put('/:id', authenticateToken, requirePermission('employee:update'), (req
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       emp.domainExpertise.forEach(d => {
-        const domainId = d.id || `d_${Math.random().toString(36).substring(2, 8)}`;
-        insertDomain.run(
-          domainId, id, d.domain, d.customDomain || '',
-          Number(d.experienceYears) || 0, d.proficiency || 'Intermediate',
-          d.lastUsed || 'Current', d.lastProject || '', d.specialization || ''
-        );
+        if (d && (d.domain || d.customDomain)) {
+          const domainId = d.id || `d_${Math.random().toString(36).substring(2, 8)}`;
+          insertDomain.run(
+            domainId, storedId, (d.domain || '').trim(), (d.customDomain || '').trim(),
+            Number(d.experienceYears) || 0, (d.proficiency || '').trim(),
+            (d.lastUsed || '').trim(), (d.lastProject || '').trim(), (d.specialization || '').trim()
+          );
+        }
       });
     }
   });
 
   try {
     updateTransaction();
-    const updated = db.prepare('SELECT * FROM employees WHERE id = ?').get(id);
+    const updated = db.prepare('SELECT * FROM employees WHERE id = ?').get(storedId);
     return res.json({ employee: hydrateEmployee(updated), message: 'Employee profile updated successfully' });
   } catch (err) {
     console.error('Error updating employee:', err);
@@ -478,6 +604,11 @@ router.delete('/:id', authenticateToken, requirePermission('employee:delete'), (
 
 // POST /api/employees/reset - Reset system to clean state (Protected: system:reset)
 router.post('/reset', authenticateToken, requirePermission('system:reset'), (req, res) => {
+  const ALLOW_SYSTEM_RESET = process.env.ALLOW_SYSTEM_RESET === 'true';
+  if (!ALLOW_SYSTEM_RESET) {
+    return res.status(403).json({ error: 'System reset is disabled on this server' });
+  }
+
   try {
     resetDatabase();
     const count = db.prepare('SELECT count(*) as count FROM employees').get().count;

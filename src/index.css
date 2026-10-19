@@ -16,10 +16,9 @@
 }
 
 html, body {
-  height: 100%;
+  min-height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background-color: #E8EDF4;
   color: #0B1B4D;
@@ -28,9 +27,14 @@ html, body {
 }
 
 #root {
-  height: 100%;
+  min-height: 100%;
   width: 100%;
-  overflow: hidden;
+}
+
+/* Hide native Edge / IE password reveal & clear buttons to prevent duplicate eye icons */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
 }
 
 /* Custom Scrollbar */

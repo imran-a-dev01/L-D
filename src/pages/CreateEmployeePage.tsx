@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Save, 
   Check, 
   CheckCircle2, 
   User, 
@@ -29,7 +28,7 @@ import { ALL_CATEGORIES, PROFICIENCY_LEVELS } from '../data/skillRegistry';
 
 import { SkillIcon } from '../components/common/SkillIcon';
 import { AddSkillDrawer } from '../components/skills/AddSkillDrawer';
-import { CustomSelect } from '../components/common/CustomSelect';
+import { CustomSelect, SelectOption } from '../components/common/CustomSelect';
 import { useToast } from '../components/common/Toast';
 import { useDropdowns } from '../hooks/useDropdowns';
 import { dropdownService } from '../services/dropdownService';
@@ -37,32 +36,37 @@ import { employeeService } from '../services/employeeService';
 
 interface CreateEmployeePageProps {
   initialEmployee?: Employee | null;
+  initialId?: string;
+  lockId?: boolean;
   onSave: (employee: Employee) => void;
   onCancel: () => void;
-  existingIds: string[];
+  existingIds?: string[];
   isSaving?: boolean;
 }
 
 export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
   initialEmployee,
+  initialId = '',
+  lockId = false,
   onSave,
   onCancel,
-  existingIds,
+  existingIds = [],
   isSaving = false,
 }) => {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Dynamic lookup options synced with SQLite master tables
-  const dropdownOptions = useDropdowns();
+  const { isLoading: dropdownsLoading, isError: dropdownsError, retry: retryDropdowns, ...dropdownOptions } = useDropdowns();
 
   // Step 1: Employee Information Fields
-  const [id, setId] = useState(initialEmployee?.id || '');
+  const [id, setId] = useState(initialEmployee?.id || initialId || '');
   const [name, setName] = useState(initialEmployee?.name || '');
   const [email, setEmail] = useState(initialEmployee?.email || '');
   const [designation, setDesignation] = useState(initialEmployee?.designation || '');
   const [businessUnit, setBusinessUnit] = useState(initialEmployee?.businessUnit || '');
   const [reportingManager, setReportingManager] = useState(initialEmployee?.reportingManager || '');
+  const [reportingManagerEmail, setReportingManagerEmail] = useState(initialEmployee?.reportingManagerEmail || '');
   const [currentProject, setCurrentProject] = useState(initialEmployee?.currentProject || '');
   const [currentCustomer, setCurrentCustomer] = useState(initialEmployee?.currentCustomer || '');
   const [location, setLocation] = useState(initialEmployee?.location || '');
@@ -72,6 +76,63 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
   const [deployableRoles, setDeployableRoles] = useState<string[]>(
     initialEmployee?.deployableRoles || []
   );
+  const [deployableRoleInput, setDeployableRoleInput] = useState<string>('');
+
+  // Structure distinct manager options with name as label and email as sublabel
+  const managerOptions = useMemo<SelectOption[]>(() => {
+    const list: SelectOption[] = [];
+    const seenNames = new Map<string, string>(); // name.toLowerCase() -> email
+
+    (dropdownOptions.managers || []).forEach((mgr) => {
+      if (!mgr || typeof mgr !== 'string') return;
+      const match = mgr.match(/^(.+?)\s*\((.+?@.+?)\)?$/);
+      const mgrName = (match ? match[1] : mgr).trim();
+      const mgrEmail = (match ? match[2] : '').trim();
+      if (!mgrName) return;
+
+      const lower = mgrName.toLowerCase();
+      if (!seenNames.has(lower) || (mgrEmail && !seenNames.get(lower))) {
+        seenNames.set(lower, mgrEmail);
+      }
+    });
+
+    seenNames.forEach((emailVal, lower) => {
+      const raw = dropdownOptions.managers.find((m) => {
+        const match = m.match(/^(.+?)\s*\((.+?@.+?)\)?$/);
+        const n = (match ? match[1] : m).trim();
+        return n.toLowerCase() === lower;
+      });
+      const match = raw?.match(/^(.+?)\s*\((.+?@.+?)\)?$/);
+      const displayName = (match ? match[1] : (raw || lower)).trim();
+
+      list.push({
+        value: displayName,
+        label: displayName,
+        sublabel: emailVal || undefined,
+      });
+    });
+
+    return list;
+  }, [dropdownOptions.managers]);
+
+  const handleManagerSelect = (val: string) => {
+    const match = val.match(/^(.+?)\s*\((.+?@.+?)\)?$/);
+    const cleanName = (match ? match[1] : val).trim();
+    const extractedEmail = (match ? match[2] : '').trim();
+
+    setReportingManager(cleanName);
+
+    // Auto-fill manager email if available in options and email field is currently empty
+    const matchedOpt = managerOptions.find((m) => m.value.toLowerCase() === cleanName.toLowerCase());
+    const targetEmail = extractedEmail || matchedOpt?.sublabel || '';
+    if (targetEmail && !reportingManagerEmail) {
+      setReportingManagerEmail(targetEmail);
+    }
+
+    if (errors.reportingManagerEmail) {
+      setErrors((prev) => ({ ...prev, reportingManagerEmail: '' }));
+    }
+  };
 
   // Step 2: Technical Skills
   const [technicalSkills, setTechnicalSkills] = useState<TechnicalSkill[]>(
@@ -115,6 +176,13 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
 
     if (!name.trim()) newErrors.name = 'Employee Name is required';
     if (!email.trim() || !email.includes('@')) newErrors.email = 'Valid Email Address is required';
+
+    if (reportingManagerEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(reportingManagerEmail.trim())) {
+        newErrors.reportingManagerEmail = 'Please enter a valid email address';
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -175,55 +243,43 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       experienceYears: domainExp,
       proficiency: domainProficiency,
       lastUsed: domainLastUsed,
-      lastProject: domainProject || 'Client Project',
-      specialization: domainSpec || 'Functional Practice',
+      lastProject: domainProject.trim(),
+      specialization: domainSpec.trim(),
     };
 
     setDomainExpertiseList([...domainExpertiseList, entry]);
     setNewDomain('');
-    setCustomDomainText('');
-    setDomainProject('');
-    setDomainSpec('');
-    toast(`Added "${finalDomain}" domain expertise`, 'success');
   };
 
-  const handleSaveDraft = () => {
-    if (!id.trim()) {
-      toast('Employee ID is required to save a draft', 'error');
-      return;
+  useEffect(() => {
+    if (initialEmployee) {
+      setId(initialEmployee.id || '');
+      setName(initialEmployee.name || '');
+      setEmail(initialEmployee.email || '');
+      setDesignation(initialEmployee.designation || '');
+      setBusinessUnit(initialEmployee.businessUnit || '');
+      setReportingManager(initialEmployee.reportingManager || '');
+      setReportingManagerEmail(initialEmployee.reportingManagerEmail || '');
+      setCurrentProject(initialEmployee.currentProject || '');
+      setCurrentCustomer(initialEmployee.currentCustomer || '');
+      setLocation(initialEmployee.location || '');
+      setTotalExperience(initialEmployee.totalExperience || 0);
+      setCurrentRole(initialEmployee.currentRole || '');
+      setOwlSureDesignation(initialEmployee.owlSureDesignation || '');
+      setDeployableRoles(initialEmployee.deployableRoles || []);
+      setTechnicalSkills(initialEmployee.technicalSkills || []);
+      setDomainExpertiseList(initialEmployee.domainExpertise || []);
+      setImmediateTechnologies(initialEmployee.immediateTechnologies || []);
+      setLearningTechnologies(initialEmployee.learningTechnologies || []);
+    } else if (initialId) {
+      setId(initialId);
     }
-    if (!name.trim()) {
-      toast('Employee Name is required to save a draft', 'error');
-      return;
-    }
+  }, [initialEmployee, initialId]);
 
-    const draftEmployee: Employee = {
-      id: id.trim().toUpperCase(),
-      name: name.trim(),
-      email: email.trim(),
-      designation,
-      businessUnit,
-      reportingManager,
-      currentProject,
-      currentCustomer,
-      location,
-      totalExperience: Number(totalExperience) || 0,
-      currentRole,
-      owlSureDesignation,
-      deployableRoles,
-      technicalSkills,
-      domainExpertise: domainExpertiseList,
-      immediateTechnologies,
-      learningTechnologies,
-      profileCompletion: 0,
-      status: 'In Progress',
-      updatedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-    };
-
-    draftEmployee.profileCompletion = employeeService.calculateCompletion(draftEmployee);
-    onSave(draftEmployee);
-    toast('Draft saved to database', 'info');
-  };
+  // Smooth scroll to top when changing wizard steps
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentStep]);
 
   const handleSaveFinalProfile = () => {
     if (isSaving) return;
@@ -239,7 +295,8 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       email: email.trim(),
       designation,
       businessUnit,
-      reportingManager,
+      reportingManager: reportingManager.trim(),
+      reportingManagerEmail: reportingManagerEmail.trim(),
       currentProject,
       currentCustomer,
       location,
@@ -269,7 +326,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
   ];
 
   return (
-    <div className="space-y-2.5 max-w-6xl mx-auto pb-2">
+    <div className="space-y-3.5 w-full pb-2">
       {/* Top Header - Compact, clean header */}
       <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
         <div>
@@ -285,17 +342,8 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
           </h1>
         </div>
 
-        {/* Top Right Save Draft & Save Profile Buttons */}
+        {/* Top Right Save Profile Button */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleSaveDraft}
-            disabled={isSaving}
-            className="btn-shake-secondary inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-[#E3EAF5] rounded-xl text-xs font-semibold text-[#0B1B4D] transition-colors shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Save className="w-3.5 h-3.5 text-[#64748B]" />
-            <span>{isSaving ? 'Saving...' : 'Save Draft'}</span>
-          </button>
           <button
             type="button"
             onClick={handleSaveFinalProfile}
@@ -309,8 +357,8 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       </div>
 
       {/* Stepper Bar - Responsive Compact Grid */}
-      <div className="bg-white rounded-2xl py-2 px-3 sm:px-5 border border-[#E3EAF5] shadow-xs">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 items-center">
+      <div className="bg-white rounded-2xl py-2 px-3 sm:px-5 border border-[#E3EAF5] shadow-xs w-full">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 items-center w-full">
           {steps.map((st, idx) => {
             const isCompleted = currentStep > st.num;
             const isActive = currentStep === st.num;
@@ -355,9 +403,9 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
         </div>
       </div>
 
-      {/* Step 1: Employee Information - Clean, Balanced Single-Screen 3-Column Layout */}
+      {/* Step 1: Employee Information - Clean, Balanced 4-Column Responsive Grid */}
       {currentStep === 1 && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150 w-full">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-full bg-blue-50 text-[#1265FF] font-bold text-xs flex items-center justify-center">
@@ -373,39 +421,47 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
             </span>
           </div>
 
-          {/* 3-Column Grid: Exactly 4 Clean Rows for all 12 Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5 lg:gap-y-5.5">
+          {/* 4-Column Grid: 1 col on mobile, 2 on md, 3 on lg, 4 on 2xl */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-x-5 sm:gap-x-6 gap-y-4 sm:gap-y-5">
             
             {/* ROW 1 - Field 1: Employee ID */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-[#0B1B4D]">
-                  Employee ID <span className="text-rose-500">*</span>
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Employee ID</span>
+                  <span className="text-rose-500 font-bold">*</span>
                 </label>
-                <span className="text-[11px] text-slate-400 font-normal">Unique ID</span>
+                <span className="text-[11px] text-slate-400 font-normal shrink-0 ml-2">Unique ID</span>
               </div>
-              <input
-                type="text"
-                value={id}
-                onChange={(e) => {
-                  setId(e.target.value);
-                  if (errors.id) setErrors((prev) => ({ ...prev, id: '' }));
-                }}
-                placeholder="e.g. EMP00123"
-                disabled={!!initialEmployee}
-                className={`w-full px-3.5 py-2.5 bg-white border ${
-                  errors.id ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-200' : 'border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100'
-                } rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs h-11 disabled:bg-slate-50 transition-all`}
-              />
-              {errors.id && <div className="text-[11px] text-rose-500 mt-1">{errors.id}</div>}
+              <div className="h-11">
+                <input
+                  type="text"
+                  value={id}
+                  onChange={(e) => {
+                    setId(e.target.value);
+                    if (errors.id) setErrors((prev) => ({ ...prev, id: '' }));
+                  }}
+                  placeholder="e.g. EMP00123"
+                  disabled={!!initialEmployee || lockId}
+                  className={`w-full px-3.5 py-2.5 bg-white border ${
+                    errors.id ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-200' : 'border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100'
+                  } rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs h-11 disabled:bg-slate-50 transition-all`}
+                />
+              </div>
+              <div className="min-h-[18px] mt-1 text-[11px] text-rose-500 leading-tight">
+                {errors.id || ''}
+              </div>
             </div>
 
             {/* ROW 1 - Field 2: Employee Name */}
-            <div>
-              <label className="block text-xs font-bold text-[#0B1B4D] mb-2">
-                Employee Name <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Employee Name</span>
+                  <span className="text-rose-500 font-bold">*</span>
+                </label>
+              </div>
+              <div className="h-11 relative">
                 <User className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
@@ -420,15 +476,20 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                   } rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs h-11 transition-all`}
                 />
               </div>
-              {errors.name && <div className="text-[11px] text-rose-500 mt-1">{errors.name}</div>}
+              <div className="min-h-[18px] mt-1 text-[11px] text-rose-500 leading-tight">
+                {errors.name || ''}
+              </div>
             </div>
 
             {/* ROW 1 - Field 3: Email Address */}
-            <div>
-              <label className="block text-xs font-bold text-[#0B1B4D] mb-2">
-                Email Address <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Email Address</span>
+                  <span className="text-rose-500 font-bold">*</span>
+                </label>
+              </div>
+              <div className="h-11 relative">
                 <Mail className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="email"
@@ -443,125 +504,215 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                   } rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs h-11 transition-all`}
                 />
               </div>
-              {errors.email && <div className="text-[11px] text-rose-500 mt-1">{errors.email}</div>}
+              <div className="min-h-[18px] mt-1 text-[11px] text-rose-500 leading-tight">
+                {errors.email || ''}
+              </div>
             </div>
 
-            {/* ROW 2 - Field 4: Designation / Grade */}
-            <div>
-              <label className="block text-xs font-bold text-[#0B1B4D] mb-2">
-                Designation / Grade <span className="text-rose-500">*</span>
-              </label>
-              <CustomSelect
-                value={designation}
-                onChange={(val) => setDesignation(val)}
-                options={dropdownOptions.designations}
-                icon={<Award className="w-4 h-4" />}
-                placeholder="Select designation..."
-                allowOther={true}
-                size="md"
-                otherPlaceholder="Specify custom designation..."
-                onSaveCustomOption={async (val) => dropdownService.addOption('designation', val)}
-              />
+            {/* ROW 1 - Field 4: Designation / Grade */}
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Designation / Grade</span>
+                  <span className="text-rose-500 font-bold">*</span>
+                </label>
+              </div>
+              <div className="h-11">
+                <CustomSelect
+                  value={designation}
+                  onChange={(val) => setDesignation(val)}
+                  options={dropdownOptions.designations}
+                  icon={<Award className="w-4 h-4" />}
+                  placeholder="Select designation..."
+                  allowOther={true}
+                  size="md"
+                  otherPlaceholder="Specify custom designation..."
+                  onSaveCustomOption={async (val) => dropdownService.addOption('designation', val)}
+                  isLoading={dropdownsLoading}
+                  isError={dropdownsError}
+                  onRetry={retryDropdowns}
+                />
+              </div>
+              <div className="min-h-[18px] mt-1" />
             </div>
 
             {/* ROW 2 - Field 5: Business Unit / Practice */}
-            <div>
-              <label className="block text-xs font-bold text-[#0B1B4D] mb-2">
-                Business Unit / Practice <span className="text-rose-500">*</span>
-              </label>
-              <CustomSelect
-                value={businessUnit}
-                onChange={(val) => setBusinessUnit(val)}
-                options={dropdownOptions.practices}
-                icon={<Briefcase className="w-4 h-4" />}
-                placeholder="Select business unit..."
-                allowOther={true}
-                size="md"
-                otherPlaceholder="Specify custom practice..."
-                onSaveCustomOption={async (val) => dropdownService.addOption('business_unit', val)}
-              />
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Business Unit / Practice</span>
+                  <span className="text-rose-500 font-bold">*</span>
+                </label>
+              </div>
+              <div className="h-11">
+                <CustomSelect
+                  value={businessUnit}
+                  onChange={(val) => setBusinessUnit(val)}
+                  options={dropdownOptions.practices}
+                  icon={<Briefcase className="w-4 h-4" />}
+                  placeholder="Select business unit..."
+                  allowOther={true}
+                  size="md"
+                  otherPlaceholder="Specify custom practice..."
+                  onSaveCustomOption={async (val) => dropdownService.addOption('business_unit', val)}
+                  isLoading={dropdownsLoading}
+                  isError={dropdownsError}
+                  onRetry={retryDropdowns}
+                />
+              </div>
+              <div className="min-h-[18px] mt-1" />
             </div>
 
             {/* ROW 2 - Field 6: Reporting Manager */}
-            <div>
-              <label className="block text-xs font-bold text-[#0B1B4D] mb-2">
-                Reporting Manager <span className="text-rose-500">*</span>
-              </label>
-              <CustomSelect
-                value={reportingManager}
-                onChange={(val) => setReportingManager(val)}
-                options={dropdownOptions.managers}
-                icon={<Mail className="w-4 h-4" />}
-                placeholder="Select manager..."
-                allowOther={true}
-                size="md"
-                otherPlaceholder="Specify manager (e.g. Suresh Kumar)..."
-                onSaveCustomOption={async (val) => dropdownService.addOption('manager', val, `${val.toLowerCase().replace(/\s/g, '.')}@company.com`)}
-              />
-            </div>
-
-            {/* ROW 3 - Field 7: Current Project */}
-            <div>
-              <div className="flex items-center gap-1 mb-2">
-                <label className="block text-xs font-bold text-[#0B1B4D]">Current Project</label>
-                <span title="Active project allocation"><HelpCircle className="w-3.5 h-3.5 text-[#94A3B8]" /></span>
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Reporting Manager</span>
+                  <span className="text-rose-500 font-bold">*</span>
+                </label>
               </div>
-              <CustomSelect
-                value={currentProject}
-                onChange={(val) => setCurrentProject(val)}
-                options={dropdownOptions.projects}
-                icon={<Briefcase className="w-4 h-4" />}
-                placeholder="Select or enter project..."
-                allowOther={true}
-                size="md"
-                otherPlaceholder="Enter project name..."
-                onSaveCustomOption={async (val) => dropdownService.addOption('project', val)}
-              />
-            </div>
-
-            {/* ROW 3 - Field 8: Current Customer */}
-            <div>
-              <div className="flex items-center gap-1 mb-2">
-                <label className="block text-xs font-bold text-[#0B1B4D]">Current Customer</label>
-                <span title="Client sponsor"><HelpCircle className="w-3.5 h-3.5 text-[#94A3B8]" /></span>
+              <div className="h-11">
+                <CustomSelect
+                  value={reportingManager}
+                  onChange={handleManagerSelect}
+                  options={managerOptions}
+                  icon={<User className="w-4 h-4" />}
+                  placeholder="Select manager..."
+                  allowOther={true}
+                  size="md"
+                  otherPlaceholder="Specify manager (e.g. Suresh Kumar)..."
+                  onSaveCustomOption={async (val) => {
+                    const match = val.match(/^(.+?)\s*\((.+?@.+?)\)?$/);
+                    const cleanName = (match ? match[1] : val).trim();
+                    const cleanEmail = (match ? match[2] : (reportingManagerEmail || '')).trim();
+                    return dropdownService.addOption('manager', cleanName, cleanEmail);
+                  }}
+                  isLoading={dropdownsLoading}
+                  isError={dropdownsError}
+                  onRetry={retryDropdowns}
+                />
               </div>
-              <CustomSelect
-                value={currentCustomer}
-                onChange={(val) => setCurrentCustomer(val)}
-                options={dropdownOptions.customers}
-                icon={<Building2 className="w-4 h-4" />}
-                placeholder="Select or enter customer..."
-                allowOther={true}
-                size="md"
-                otherPlaceholder="Enter customer name..."
-                onSaveCustomOption={async (val) => dropdownService.addOption('customer', val)}
-              />
+              <div className="min-h-[18px] mt-1" />
             </div>
 
-            {/* ROW 3 - Field 9: Location */}
-            <div>
-              <label className="block text-xs font-bold text-[#0B1B4D] mb-2">
-                Location <span className="text-rose-500">*</span>
-              </label>
-              <CustomSelect
-                value={location}
-                onChange={(val) => setLocation(val)}
-                options={dropdownOptions.locations}
-                icon={<MapPin className="w-4 h-4" />}
-                placeholder="Select location..."
-                allowOther={true}
-                size="md"
-                otherPlaceholder="Specify custom location..."
-                onSaveCustomOption={async (val) => dropdownService.addOption('location', val)}
-              />
+            {/* ROW 2 - Field 7: Reporting Manager Email */}
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Reporting Manager Email</span>
+                </label>
+                <span className="text-[11px] text-slate-400 font-normal shrink-0 ml-2">Optional</span>
+              </div>
+              <div className="h-11 relative">
+                <Mail className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="email"
+                  value={reportingManagerEmail}
+                  onChange={(e) => {
+                    setReportingManagerEmail(e.target.value);
+                    if (errors.reportingManagerEmail) setErrors((prev) => ({ ...prev, reportingManagerEmail: '' }));
+                  }}
+                  placeholder="manager@company.com (optional)"
+                  className={`w-full pl-9 pr-3.5 py-2.5 bg-white border ${
+                    errors.reportingManagerEmail ? 'border-rose-400 ring-1 ring-rose-200' : 'border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100'
+                  } rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs h-11 transition-all`}
+                />
+              </div>
+              <div className="min-h-[18px] mt-1 text-[11px] text-rose-500 leading-tight">
+                {errors.reportingManagerEmail || ''}
+              </div>
             </div>
 
-            {/* ROW 4 - Field 10: Total Experience */}
-            <div>
-              <label className="block text-xs font-bold text-[#0B1B4D] mb-2">
-                Total Experience (Years) <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
+            {/* ROW 2 - Field 8: Location */}
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Location</span>
+                  <span className="text-rose-500 font-bold">*</span>
+                </label>
+              </div>
+              <div className="h-11">
+                <CustomSelect
+                  value={location}
+                  onChange={(val) => setLocation(val)}
+                  options={dropdownOptions.locations}
+                  icon={<MapPin className="w-4 h-4" />}
+                  placeholder="Select location..."
+                  allowOther={true}
+                  size="md"
+                  otherPlaceholder="Specify custom location..."
+                  onSaveCustomOption={async (val) => dropdownService.addOption('location', val)}
+                  isLoading={dropdownsLoading}
+                  isError={dropdownsError}
+                  onRetry={retryDropdowns}
+                />
+              </div>
+              <div className="min-h-[18px] mt-1" />
+            </div>
+
+            {/* ROW 3 - Field 9: Current Project */}
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Current Project</span>
+                  <span title="Active project allocation"><HelpCircle className="w-3.5 h-3.5 text-[#94A3B8] cursor-help inline shrink-0" /></span>
+                </label>
+              </div>
+              <div className="h-11">
+                <CustomSelect
+                  value={currentProject}
+                  onChange={(val) => setCurrentProject(val)}
+                  options={dropdownOptions.projects}
+                  icon={<Briefcase className="w-4 h-4" />}
+                  placeholder="Select or enter project..."
+                  allowOther={true}
+                  size="md"
+                  otherPlaceholder="Enter project name..."
+                  onSaveCustomOption={async (val) => dropdownService.addOption('project', val)}
+                  isLoading={dropdownsLoading}
+                  isError={dropdownsError}
+                  onRetry={retryDropdowns}
+                />
+              </div>
+              <div className="min-h-[18px] mt-1" />
+            </div>
+
+            {/* ROW 3 - Field 10: Current Customer */}
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Current Customer</span>
+                  <span title="Client sponsor"><HelpCircle className="w-3.5 h-3.5 text-[#94A3B8] cursor-help inline shrink-0" /></span>
+                </label>
+              </div>
+              <div className="h-11">
+                <CustomSelect
+                  value={currentCustomer}
+                  onChange={(val) => setCurrentCustomer(val)}
+                  options={dropdownOptions.customers}
+                  icon={<Building2 className="w-4 h-4" />}
+                  placeholder="Select or enter customer..."
+                  allowOther={true}
+                  size="md"
+                  otherPlaceholder="Enter customer name..."
+                  onSaveCustomOption={async (val) => dropdownService.addOption('customer', val)}
+                  isLoading={dropdownsLoading}
+                  isError={dropdownsError}
+                  onRetry={retryDropdowns}
+                />
+              </div>
+              <div className="min-h-[18px] mt-1" />
+            </div>
+
+            {/* ROW 3 - Field 11: Total Experience */}
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Total Experience (Years)</span>
+                  <span className="text-rose-500 font-bold">*</span>
+                </label>
+              </div>
+              <div className="h-11 relative">
                 <Hash className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="number"
@@ -573,45 +724,141 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                   className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100 rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none transition-all shadow-2xs h-11"
                 />
               </div>
+              <div className="min-h-[18px] mt-1" />
             </div>
 
-            {/* ROW 4 - Field 11: Current Role */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-[#0B1B4D] truncate">
-                  Current Role <span className="text-rose-500">*</span>
+            {/* ROW 3 - Field 12: Current Role */}
+            <div className="flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Current Role</span>
+                  <span className="text-rose-500 font-bold">*</span>
                 </label>
-                <span className="text-[11px] text-slate-400 font-normal">Internal</span>
+                <span className="text-[11px] text-slate-400 font-normal shrink-0 ml-2">Internal</span>
               </div>
-              <CustomSelect
-                value={currentRole}
-                onChange={(val) => setCurrentRole(val)}
-                options={dropdownOptions.currentRoles}
-                icon={<Lock className="w-4 h-4" />}
-                placeholder="Select role..."
-                allowOther={true}
-                size="md"
-                otherPlaceholder="Specify custom current role..."
-                onSaveCustomOption={async (val) => dropdownService.addOption('current_role', val)}
-              />
+              <div className="h-11">
+                <CustomSelect
+                  value={currentRole}
+                  onChange={(val) => setCurrentRole(val)}
+                  options={dropdownOptions.currentRoles}
+                  icon={<Lock className="w-4 h-4" />}
+                  placeholder="Select role..."
+                  allowOther={true}
+                  size="md"
+                  otherPlaceholder="Specify custom current role..."
+                  onSaveCustomOption={async (val) => dropdownService.addOption('current_role', val)}
+                  isLoading={dropdownsLoading}
+                  isError={dropdownsError}
+                  onRetry={retryDropdowns}
+                />
+              </div>
+              <div className="min-h-[18px] mt-1" />
             </div>
 
-            {/* ROW 4 - Field 12: OwlSure Designation */}
-            <div>
-              <label className="block text-xs font-bold text-[#0B1B4D] mb-2 truncate">
-                Designation as per OwlSure <span className="text-rose-500">*</span>
-              </label>
-              <CustomSelect
-                value={owlSureDesignation}
-                onChange={(val) => setOwlSureDesignation(val)}
-                options={dropdownOptions.owlsureDesignations}
-                icon={<Award className="w-4 h-4" />}
-                placeholder="Select OwlSure designation..."
-                allowOther={true}
-                size="md"
-                otherPlaceholder="Specify OwlSure designation..."
-                onSaveCustomOption={async (val) => dropdownService.addOption('owlsure_designation', val)}
-              />
+            {/* ROW 4 - Field 13: OwlSure Designation */}
+            <div className="col-span-1 md:col-span-2 lg:col-span-1 2xl:col-span-1 flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Designation as per OwlSure</span>
+                  <span className="text-rose-500 font-bold">*</span>
+                </label>
+              </div>
+              <div className="h-11">
+                <CustomSelect
+                  value={owlSureDesignation}
+                  onChange={(val) => setOwlSureDesignation(val)}
+                  options={dropdownOptions.owlsureDesignations}
+                  icon={<Award className="w-4 h-4" />}
+                  placeholder="Select OwlSure designation..."
+                  allowOther={true}
+                  size="md"
+                  otherPlaceholder="Specify OwlSure designation..."
+                  onSaveCustomOption={async (val) => dropdownService.addOption('owlsure_designation', val)}
+                  isLoading={dropdownsLoading}
+                  isError={dropdownsError}
+                  onRetry={retryDropdowns}
+                />
+              </div>
+              <div className="min-h-[18px] mt-1" />
+            </div>
+
+            {/* ROW 4 - Field 14: Deployable Roles */}
+            <div className="col-span-1 md:col-span-2 lg:col-span-2 2xl:col-span-3 flex flex-col justify-start">
+              <div className="flex items-center justify-between h-5 mb-2 select-none">
+                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                  <span>Deployable Roles</span>
+                </label>
+                <span className="text-[11px] text-slate-400 font-normal shrink-0 ml-2">Multi-select</span>
+              </div>
+              <div className="min-h-11 p-1 bg-[#F8FAFD] hover:bg-white focus-within:bg-white border border-[#E3EAF5] focus-within:border-[#1265FF] focus-within:ring-2 focus-within:ring-blue-100 rounded-xl transition-all shadow-2xs flex flex-wrap items-center gap-1.5">
+                {deployableRoles.map((role) => (
+                  <span
+                    key={role}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-semibold rounded-lg border border-purple-200 shadow-2xs"
+                  >
+                    <span>{role}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveDeployableRole(role)}
+                      className="hover:text-rose-600 transition-colors cursor-pointer ml-0.5"
+                      title="Remove role"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+                
+                <div className="flex-1 min-w-[150px] flex items-center gap-1 px-1">
+                  <input
+                    type="text"
+                    value={deployableRoleInput}
+                    onChange={(e) => setDeployableRoleInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (deployableRoleInput.trim()) {
+                          handleAddDeployableRole(deployableRoleInput.trim());
+                          setDeployableRoleInput('');
+                        }
+                      }
+                    }}
+                    placeholder={deployableRoles.length === 0 ? "Type role & press Enter..." : "+ Add another role..."}
+                    className="w-full text-xs text-[#0B1B4D] placeholder-[#94A3B8] bg-transparent focus:outline-none py-1 font-medium"
+                  />
+                  {deployableRoleInput.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleAddDeployableRole(deployableRoleInput.trim());
+                        setDeployableRoleInput('');
+                      }}
+                      className="px-2 py-0.5 text-xs font-bold text-white bg-[#1265FF] hover:bg-[#0E52D4] rounded-lg shrink-0 cursor-pointer transition-all"
+                    >
+                      Add
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="min-h-[18px] mt-1 text-[11px] text-[#64748B] flex items-center gap-1.5">
+                {dropdownOptions.deployableRoles.length > 0 && (
+                  <div className="flex items-center gap-1 overflow-x-auto text-[11px] text-[#64748B] scrollbar-none">
+                    <span className="text-slate-400 shrink-0">Suggestions:</span>
+                    {dropdownOptions.deployableRoles
+                      .filter((r) => !deployableRoles.includes(r))
+                      .slice(0, 4)
+                      .map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => handleAddDeployableRole(suggestion)}
+                          className="hover:text-[#1265FF] hover:underline cursor-pointer bg-white px-1.5 py-0.5 rounded border border-slate-200 text-[10px] shrink-0"
+                        >
+                          +{suggestion}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>
@@ -634,10 +881,10 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
         </div>
       )}
 
-      {/* Step 2: Technical Skills - Balanced Single-Screen Layout (Spacious & Zero-Scroll) */}
+      {/* Step 2: Technical Skills - Balanced Responsive Card Grid (1 / 2 / 3 / 4 Columns) */}
       {currentStep === 2 && (
-        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150 w-full">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-blue-50 text-[#1265FF] font-extrabold text-sm flex items-center justify-center">
                 2
@@ -660,8 +907,8 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
             </button>
           </div>
 
-          {/* Category Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-100">
+          {/* Category Tabs - Spanning full width */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-100 w-full scrollbar-none">
             {(dropdownOptions.skillCategories.length > 0 ? dropdownOptions.skillCategories : ALL_CATEGORIES)
               .filter((c) => c !== 'Domain Expertise')
               .map((cat) => (
@@ -680,100 +927,105 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
               ))}
           </div>
 
-          {/* Table of Skills */}
-          <div className="overflow-x-auto rounded-2xl border border-[#E3EAF5]">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead>
-                <tr className="bg-[#F8FAFD] border-b border-[#E3EAF5] text-[#64748B] font-bold text-xs uppercase tracking-wider">
-                  <th className="py-3 px-4 w-12 text-center">#</th>
-                  <th className="py-3 px-4">Skill</th>
-                  <th className="py-3 px-4">Experience (Years)</th>
-                  <th className="py-3 px-4">Proficiency</th>
-                  <th className="py-3 px-4">Last Used</th>
-                  <th className="py-3 px-4 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E3EAF5] bg-white">
-                {technicalSkills
-                  .filter((s) => s.category === activeCategoryTab)
-                  .map((skill, index) => (
-                    <tr key={skill.id} className="hover:bg-blue-50/20 transition-colors">
-                      <td className="py-3 px-4 text-center text-[#64748B] font-semibold">
-                        {index + 1}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2.5 font-bold text-[#0B1B4D]">
-                          <SkillIcon name={skill.name} category={skill.category} size="xs" />
-                          <span className="text-xs sm:text-sm">{skill.name}</span>
+          {/* Responsive Card Grid for Technical Skills (1 / 2 / 3 / 4 Columns) */}
+          {technicalSkills.filter((s) => s.category === activeCategoryTab).length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+              {technicalSkills
+                .filter((s) => s.category === activeCategoryTab)
+                .map((skill) => (
+                  <div
+                    key={skill.id}
+                    className="h-full flex flex-col justify-between bg-white hover:bg-blue-50/15 border border-[#E3EAF5] hover:border-blue-200 rounded-2xl p-4 shadow-2xs transition-all space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <SkillIcon name={skill.name} category={skill.category} size="sm" />
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs sm:text-sm text-[#0B1B4D] truncate" title={skill.name}>
+                            {skill.name}
+                          </div>
+                          <span className="text-[10px] text-[#64748B] font-semibold uppercase tracking-wider">
+                            {skill.category}
+                          </span>
                         </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <input
-                          type="number"
-                          step="0.5"
-                          min="0"
-                          value={skill.experienceYears}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            setTechnicalSkills(technicalSkills.map((s) => s.id === skill.id ? { ...s, experienceYears: val } : s));
-                          }}
-                          className="w-24 px-3 py-1.5 bg-white border border-[#E3EAF5] focus:border-[#1265FF] focus:ring-1 focus:ring-blue-100 rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium h-9 transition-all"
-                        />
-                      </td>
-                      <td className="py-3 px-4">
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTechnicalSkills(technicalSkills.filter((s) => s.id !== skill.id))}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                        title="Remove skill"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <label className="text-[10px] font-bold text-[#64748B] uppercase block mb-1">Experience</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="0"
+                            value={skill.experienceYears}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setTechnicalSkills(technicalSkills.map((s) => s.id === skill.id ? { ...s, experienceYears: val } : s));
+                            }}
+                            className="w-full px-2.5 py-1 bg-[#F8FAFD] border border-[#E3EAF5] focus:border-[#1265FF] focus:bg-white rounded-lg text-xs font-semibold text-[#0B1B4D] h-8"
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-medium pointer-events-none">yrs</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-[#64748B] uppercase block mb-1">Proficiency</label>
                         <select
                           value={skill.proficiency}
                           onChange={(e) => {
                             const val = e.target.value as ProficiencyLevel;
                             setTechnicalSkills(technicalSkills.map((s) => s.id === skill.id ? { ...s, proficiency: val } : s));
                           }}
-                          className="px-3 py-1.5 bg-white border border-[#E3EAF5] focus:border-[#1265FF] focus:ring-1 focus:ring-blue-100 rounded-xl text-xs sm:text-sm font-semibold text-[#0B1B4D] h-9 transition-all"
+                          className="w-full px-2 py-1 bg-[#F8FAFD] border border-[#E3EAF5] focus:border-[#1265FF] focus:bg-white rounded-lg text-xs font-semibold text-[#0B1B4D] h-8 cursor-pointer"
                         >
                           {(dropdownOptions.proficiencies.length > 0 ? dropdownOptions.proficiencies : PROFICIENCY_LEVELS).map((lvl) => (
                             <option key={lvl} value={lvl}>{lvl}</option>
                           ))}
                         </select>
-                      </td>
-                      <td className="py-3 px-4 text-[#64748B]">
-                        <div className="flex items-center gap-1.5 text-xs font-medium">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{skill.lastUsed}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setTechnicalSkills(technicalSkills.filter((s) => s.id !== skill.id))}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                          title="Remove skill"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
 
-            {technicalSkills.filter((s) => s.category === activeCategoryTab).length === 0 && (
-              <div className="py-8 text-center space-y-1.5">
-                <p className="text-xs sm:text-sm text-[#64748B]">
-                  No <span className="font-bold text-[#0B1B4D]">{activeCategoryTab}</span> skills added yet.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setIsAddSkillDrawerOpen(true)}
-                  className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-[#1265FF] hover:underline cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add {activeCategoryTab} skill now</span>
-                </button>
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-[#64748B]">
+                      <span className="flex items-center gap-1 text-slate-400">
+                        <Calendar className="w-3 h-3" />
+                        <span>Last used:</span>
+                      </span>
+                      <span className="font-semibold text-[#0B1B4D]">{skill.lastUsed || 'Recent'}</span>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <div className="py-12 text-center space-y-2 bg-[#F8FAFD] rounded-2xl border border-dashed border-[#DFE5EE]">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#1265FF] flex items-center justify-center mx-auto">
+                <Sparkles className="w-6 h-6" />
               </div>
-            )}
-          </div>
+              <p className="text-xs sm:text-sm text-[#64748B]">
+                No <span className="font-bold text-[#0B1B4D]">{activeCategoryTab}</span> skills added yet.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsAddSkillDrawerOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1265FF] hover:bg-[#0E52D4] text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add {activeCategoryTab} skill</span>
+              </button>
+            </div>
+          )}
 
-          {/* Immediate Technologies & Learning Technologies */}
-          <div className="pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Immediate Technologies & Learning Technologies - Full Width */}
+          <div className="pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
             {/* Immediate Technologies */}
             <div className="space-y-1.5">
               <label className="block text-xs font-bold text-[#0B1B4D]">
@@ -885,9 +1137,9 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
         </div>
       )}
 
-      {/* Step 3: Domain Expertise - Balanced Single-Screen Layout (Spacious & Zero-Scroll) */}
+      {/* Step 3: Domain Expertise - Balanced Responsive Card Grid (1 / 2 / 3 / 4 Columns) */}
       {currentStep === 3 && (
-        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150">
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150 w-full">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-blue-50 text-[#1265FF] font-extrabold text-sm flex items-center justify-center">
@@ -902,12 +1154,12 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
             </div>
           </div>
 
-          {/* Domain Add Box */}
-          <div className="p-4 sm:p-5 bg-[#F8FAFD] rounded-2xl border border-[#E3EAF5] space-y-3.5">
+          {/* Domain Add Box - Responsive multi-column layout */}
+          <div className="p-4 sm:p-5 bg-[#F8FAFD] rounded-2xl border border-[#E3EAF5] space-y-3.5 w-full">
             <div className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider flex items-center gap-2">
               <span>Add Domain Entry</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3.5 items-end">
               <div>
                 <label className="block text-xs font-bold text-[#0B1B4D] mb-1.5">Domain</label>
                 <CustomSelect
@@ -917,6 +1169,9 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                   placeholder="Select domain..."
                   size="md"
                   onSaveCustomOption={async (val) => dropdownService.addOption('domain', val)}
+                  isLoading={dropdownsLoading}
+                  isError={dropdownsError}
+                  onRetry={retryDropdowns}
                 />
               </div>
 
@@ -991,55 +1246,67 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
             </div>
           </div>
 
-          {/* Domain entries table */}
-          <div className="overflow-x-auto rounded-2xl border border-[#E3EAF5]">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead>
-                <tr className="bg-[#F8FAFD] border-b border-[#E3EAF5] text-[#64748B] font-bold text-xs uppercase tracking-wider">
-                  <th className="py-3 px-4">Domain</th>
-                  <th className="py-3 px-4">Experience</th>
-                  <th className="py-3 px-4">Proficiency</th>
-                  <th className="py-3 px-4">Last Project</th>
-                  <th className="py-3 px-4">Specialization</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E3EAF5] bg-white">
-                {domainExpertiseList.map((de) => (
-                  <tr key={de.id} className="hover:bg-blue-50/20 transition-colors">
-                    <td className="py-3 px-4 font-bold text-[#0B1B4D]">
-                      {de.domain === 'Others' ? de.customDomain || 'Custom Domain' : de.domain}
-                    </td>
-                    <td className="py-3 px-4 text-[#0B1B4D] font-medium">{de.experienceYears} Years</td>
-                    <td className="py-3 px-4">
-                      <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-[#1265FF] font-bold border border-blue-200 text-xs">
-                        {de.proficiency}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-[#0B1B4D]">{de.lastProject || '—'}</td>
-                    <td className="py-3 px-4 text-[#64748B]">{de.specialization || '—'}</td>
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setDomainExpertiseList(domainExpertiseList.filter((d) => d.id !== de.id))}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                        title="Remove domain"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Responsive Card Grid for Domain Entries (1 / 2 / 3 / 4 Columns) */}
+          {domainExpertiseList.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+              {domainExpertiseList.map((de) => (
+                <div
+                  key={de.id}
+                  className="h-full flex flex-col justify-between bg-white hover:bg-blue-50/15 border border-[#E3EAF5] hover:border-blue-200 rounded-2xl p-4 shadow-2xs transition-all space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                        <Layers className="w-4 h-4" />
+                      </div>
+                      <div className="font-bold text-xs sm:text-sm text-[#0B1B4D] truncate" title={de.domain === 'Others' ? de.customDomain || '—' : de.domain}>
+                        {de.domain === 'Others' ? de.customDomain || '—' : de.domain || '—'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDomainExpertiseList(domainExpertiseList.filter((d) => d.id !== de.id))}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                      title="Remove domain"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
 
-            {domainExpertiseList.length === 0 && (
-              <div className="py-7 text-center space-y-1 text-xs sm:text-sm text-[#64748B]">
-                <p>No domain expertise entries added yet.</p>
-                <p className="text-xs text-slate-400">Use the form above to add industry domains and specializations.</p>
-              </div>
-            )}
-          </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold text-[11px]">
+                      {de.experienceYears} Years Exp
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-[#1265FF] font-bold border border-blue-200 text-[11px]">
+                      {de.proficiency}
+                    </span>
+                  </div>
+
+                  {(de.lastProject || de.specialization) && (
+                    <div className="text-[11px] text-[#64748B] space-y-0.5 pt-2 border-t border-slate-100">
+                      {de.lastProject && (
+                        <div className="truncate">
+                          <span className="text-slate-400">Project: </span>
+                          <span className="font-medium text-[#0B1B4D]">{de.lastProject}</span>
+                        </div>
+                      )}
+                      {de.specialization && (
+                        <div className="truncate">
+                          <span className="text-slate-400">Specialization: </span>
+                          <span className="font-medium text-[#0B1B4D]">{de.specialization}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 text-center space-y-1 text-xs sm:text-sm text-[#64748B] bg-[#F8FAFD] rounded-2xl border border-dashed border-[#DFE5EE]">
+              <p className="font-medium">No domain expertise entries added yet.</p>
+              <p className="text-xs text-slate-400">Use the form above to add industry domains and specializations.</p>
+            </div>
+          )}
 
           {/* Stepper Navigation */}
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
@@ -1063,9 +1330,9 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
         </div>
       )}
 
-      {/* Step 4: Final Review and Summary - Balanced Single-Screen Layout (Spacious & Zero-Scroll) */}
+      {/* Step 4: Final Review and Summary - Multi-column Responsive Layout */}
       {currentStep === 4 && (
-        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150">
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150 w-full">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-blue-50 text-[#1265FF] font-extrabold text-sm flex items-center justify-center">
@@ -1085,71 +1352,98 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
             </span>
           </div>
 
-          {/* Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Overview Cards: 2 cols on lg, 3 on 2xl */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-5">
             <div className="p-4 rounded-2xl bg-[#F8FAFD] border border-[#E3EAF5] space-y-1.5">
               <div className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Employee Identity</div>
-              <div className="text-base font-extrabold text-[#0B1B4D] truncate">{name || 'Unnamed'}</div>
+              <div className="text-base font-extrabold text-[#0B1B4D] truncate">{name.trim() || '—'}</div>
               <div className="text-xs text-[#64748B] truncate">{id} • {email}</div>
-              <div className="text-xs font-bold text-[#1265FF] truncate">{designation}</div>
+              <div className="text-xs font-bold text-[#1265FF] truncate">{designation.trim() || '—'}</div>
             </div>
 
             <div className="p-4 rounded-2xl bg-[#F8FAFD] border border-[#E3EAF5] space-y-1.5">
               <div className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Assignment & Unit</div>
-              <div className="text-sm font-bold text-[#0B1B4D] truncate">{businessUnit}</div>
-              <div className="text-xs text-[#64748B] truncate">Project: {currentProject || '—'}</div>
-              <div className="text-xs text-[#64748B] truncate">Customer: {currentCustomer || '—'}</div>
-              <div className="text-xs text-[#64748B] truncate">Location: {location} • {totalExperience} Yrs Exp</div>
+              <div className="text-sm font-bold text-[#0B1B4D] truncate">{businessUnit.trim() || '—'}</div>
+              <div className="text-xs text-[#64748B] truncate">
+                Manager: {reportingManager.trim() ? (reportingManagerEmail.trim() ? `${reportingManager.trim()} (${reportingManagerEmail.trim()})` : reportingManager.trim()) : '—'}
+              </div>
+              <div className="text-xs text-[#64748B] truncate">Project: {currentProject.trim() || '—'} • Customer: {currentCustomer.trim() || '—'}</div>
+              <div className="text-xs text-[#64748B] truncate">Location: {location.trim() || '—'} • {totalExperience || 0} Yrs Exp</div>
             </div>
 
-            {deployableRoles.length > 0 && (
-              <div className="p-4 rounded-2xl bg-[#F8FAFD] border border-[#E3EAF5] space-y-1.5">
-                <div className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Deployable Roles</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {deployableRoles.map((r) => (
-                    <span key={r} className="px-2.5 py-1 rounded-lg bg-blue-50 text-[#1265FF] border border-blue-200 text-xs font-semibold">
-                      {r}
-                    </span>
-                  ))}
-                </div>
+            <div className="p-4 rounded-2xl bg-[#F8FAFD] border border-[#E3EAF5] space-y-1.5 col-span-1 lg:col-span-2 2xl:col-span-1">
+              <div className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Roles & Designation</div>
+              <div className="text-xs text-[#64748B]">
+                <span className="font-semibold text-[#0B1B4D]">Current Role:</span> {currentRole || '—'}
               </div>
-            )}
-          </div>
-
-          {/* Technical Skills Preview */}
-          <div className="space-y-2">
-            <h4 className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Technical Skills ({technicalSkills.length})</h4>
-            <div className="p-3 bg-[#F8FAFD] rounded-2xl border border-[#E3EAF5] max-h-[120px] overflow-y-auto flex flex-wrap gap-2">
-              {technicalSkills.length === 0 ? (
-                <span className="text-xs text-slate-400 italic">No technical skills added.</span>
-              ) : (
-                technicalSkills.map((s) => (
-                  <div key={s.id} className="p-2 px-3 rounded-xl border border-[#E3EAF5] bg-white flex items-center gap-2 text-xs shadow-2xs">
-                    <SkillIcon name={s.name} category={s.category} size="xs" />
-                    <span className="font-bold text-[#0B1B4D]">{s.name}</span>
-                    <span className="text-[#64748B]">({s.experienceYears}y)</span>
-                    <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                      {s.proficiency}
-                    </span>
+              <div className="text-xs text-[#64748B]">
+                <span className="font-semibold text-[#0B1B4D]">OwlSure Designation:</span> {owlSureDesignation || '—'}
+              </div>
+              {deployableRoles.length > 0 && (
+                <div className="pt-1.5">
+                  <div className="text-[11px] font-semibold text-[#64748B] mb-1">Deployable Roles ({deployableRoles.length}):</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {deployableRoles.map((r) => (
+                      <span key={r} className="px-2 py-0.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 text-xs font-semibold">
+                        {r}
+                      </span>
+                    ))}
                   </div>
-                ))
+                </div>
               )}
             </div>
           </div>
 
-          {/* Domain Expertise Preview */}
+          {/* Technical Skills Preview with wrapping chips */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Technical Skills ({technicalSkills.length})</h4>
+            <div className="p-3.5 bg-[#F8FAFD] rounded-2xl border border-[#E3EAF5] max-h-72 overflow-y-auto">
+              {technicalSkills.length === 0 ? (
+                <span className="text-xs text-slate-400 italic">No technical skills added.</span>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2.5">
+                  {technicalSkills.map((s) => (
+                    <div key={s.id} className="p-2.5 px-3 rounded-xl border border-[#E3EAF5] bg-white flex items-center justify-between text-xs shadow-2xs">
+                      <div className="flex items-center gap-2 min-w-0 pr-1">
+                        <SkillIcon name={s.name} category={s.category} size="xs" />
+                        <span className="font-bold text-[#0B1B4D] truncate" title={s.name}>{s.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[#64748B] text-[11px]">{s.experienceYears}y</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-[#1265FF] border border-blue-100">
+                          {s.proficiency}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Domain Expertise Preview with wrapping chips */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Domain Depth ({domainExpertiseList.length})</h4>
-            <div className="p-3 bg-[#F8FAFD] rounded-2xl border border-[#E3EAF5] max-h-[100px] overflow-y-auto flex flex-wrap gap-2">
+            <div className="p-3.5 bg-[#F8FAFD] rounded-2xl border border-[#E3EAF5] max-h-56 overflow-y-auto">
               {domainExpertiseList.length === 0 ? (
                 <span className="text-xs text-slate-400 italic">No domain entries added.</span>
               ) : (
-                domainExpertiseList.map((de) => (
-                  <div key={de.id} className="p-2 px-3 rounded-xl border border-[#E3EAF5] bg-white text-xs shadow-2xs">
-                    <span className="font-bold text-[#0B1B4D]">{de.domain === 'Others' ? de.customDomain || 'Custom Domain' : de.domain}</span>
-                    <span className="text-[#64748B] ml-1.5">({de.experienceYears}y) • {de.proficiency}</span>
-                  </div>
-                ))
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2.5">
+                  {domainExpertiseList.map((de) => (
+                    <div key={de.id} className="p-2.5 px-3 rounded-xl border border-[#E3EAF5] bg-white text-xs shadow-2xs flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0 pr-1">
+                        <Layers className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                        <span className="font-bold text-[#0B1B4D] truncate">{de.domain === 'Others' ? de.customDomain || '—' : de.domain || '—'}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[#64748B] text-[11px]">{de.experienceYears}y</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                          {de.proficiency}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

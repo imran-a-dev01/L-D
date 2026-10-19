@@ -22,19 +22,19 @@ const ALLOWED_TYPES = {
 // GET /api/dropdowns - Return all master reference lookup data for forms & filters
 router.get('/', authenticateToken, (req, res) => {
   try {
-    const businessUnits = db.prepare('SELECT name FROM business_units ORDER BY id ASC').all().map(r => r.name);
-    const locations = db.prepare('SELECT name FROM locations ORDER BY id ASC').all().map(r => r.name);
-    const designations = db.prepare('SELECT name FROM designations ORDER BY grade_level ASC, id ASC').all().map(r => r.name);
-    const owlsureDesignations = db.prepare('SELECT name FROM owlsure_designations ORDER BY id ASC').all().map(r => r.name);
-    const currentRoles = db.prepare('SELECT name FROM current_roles ORDER BY id ASC').all().map(r => r.name);
-    const deployableRoles = db.prepare('SELECT name FROM deployable_roles ORDER BY id ASC').all().map(r => r.name);
-    const projects = db.prepare('SELECT name FROM projects ORDER BY id ASC').all().map(r => r.name);
-    const customers = db.prepare('SELECT name FROM customers ORDER BY id ASC').all().map(r => r.name);
-    const managers = db.prepare('SELECT name, email FROM managers ORDER BY id ASC').all().map(r => r.email ? `${r.name} (${r.email})` : r.name);
-    const skillCategories = db.prepare('SELECT name FROM skill_categories ORDER BY id ASC').all().map(r => r.name);
-    const domains = db.prepare('SELECT name FROM domains ORDER BY id ASC').all().map(r => r.name);
-    const proficiencies = db.prepare('SELECT name FROM proficiency_levels ORDER BY sort_order ASC').all().map(r => r.name);
-    const profileStatuses = db.prepare('SELECT name FROM profile_statuses ORDER BY sort_order ASC').all().map(r => r.name);
+    const businessUnits = db.prepare('SELECT DISTINCT TRIM(name) as name FROM business_units WHERE TRIM(name) != \'\' ORDER BY name COLLATE NOCASE ASC').all().map(r => r.name);
+    const locations = db.prepare('SELECT DISTINCT TRIM(name) as name FROM locations WHERE TRIM(name) != \'\' ORDER BY name COLLATE NOCASE ASC').all().map(r => r.name);
+    const designations = db.prepare('SELECT DISTINCT TRIM(name) as name FROM designations WHERE TRIM(name) != \'\' ORDER BY grade_level ASC, name COLLATE NOCASE ASC').all().map(r => r.name);
+    const owlsureDesignations = db.prepare('SELECT DISTINCT TRIM(name) as name FROM owlsure_designations WHERE TRIM(name) != \'\' ORDER BY name COLLATE NOCASE ASC').all().map(r => r.name);
+    const currentRoles = db.prepare('SELECT DISTINCT TRIM(name) as name FROM current_roles WHERE TRIM(name) != \'\' ORDER BY name COLLATE NOCASE ASC').all().map(r => r.name);
+    const deployableRoles = db.prepare('SELECT DISTINCT TRIM(name) as name FROM deployable_roles WHERE TRIM(name) != \'\' ORDER BY name COLLATE NOCASE ASC').all().map(r => r.name);
+    const projects = db.prepare('SELECT DISTINCT TRIM(name) as name FROM projects WHERE TRIM(name) != \'\' ORDER BY name COLLATE NOCASE ASC').all().map(r => r.name);
+    const customers = db.prepare('SELECT DISTINCT TRIM(name) as name FROM customers WHERE TRIM(name) != \'\' ORDER BY name COLLATE NOCASE ASC').all().map(r => r.name);
+    const managers = db.prepare('SELECT TRIM(name) as name, TRIM(email) as email FROM managers WHERE TRIM(name) != \'\' ORDER BY name COLLATE NOCASE ASC, email COLLATE NOCASE ASC').all().map(r => r.email ? `${r.name} (${r.email})` : r.name);
+    const skillCategories = db.prepare('SELECT DISTINCT TRIM(name) as name FROM skill_categories WHERE TRIM(name) != \'\' ORDER BY id ASC').all().map(r => r.name);
+    const domains = db.prepare('SELECT DISTINCT TRIM(name) as name FROM domains WHERE TRIM(name) != \'\' ORDER BY name COLLATE NOCASE ASC').all().map(r => r.name);
+    const proficiencies = db.prepare('SELECT DISTINCT TRIM(name) as name FROM proficiency_levels WHERE TRIM(name) != \'\' ORDER BY sort_order ASC').all().map(r => r.name);
+    const profileStatuses = db.prepare('SELECT DISTINCT TRIM(name) as name FROM profile_statuses WHERE TRIM(name) != \'\' ORDER BY sort_order ASC').all().map(r => r.name);
 
     return res.json({
       practices: businessUnits,
@@ -67,7 +67,7 @@ router.post('/', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'type and non-empty value are required' });
     }
 
-    const trimmed = value.trim();
+    const trimmed = value.trim().replace(/\s+/g, ' ');
     const config = ALLOWED_TYPES[type];
     if (!config) {
       return res.status(400).json({ error: `Invalid dropdown type: ${type}. Allowed: ${Object.keys(ALLOWED_TYPES).join(', ')}` });
@@ -76,16 +76,32 @@ router.post('/', authenticateToken, (req, res) => {
     if (type === 'manager') {
       const mgrMatch = trimmed.match(/^(.+?)\s*\((.+?@.+?)\)$/);
       let name = trimmed;
-      let mgrEmail = email && typeof email === 'string' && email.trim() ? email.trim() : '';
+      let mgrEmail = email && typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : '';
 
       if (mgrMatch) {
         name = mgrMatch[1].trim();
-        mgrEmail = mgrMatch[2].trim();
+        mgrEmail = mgrMatch[2].trim().toLowerCase();
       }
 
-      db.prepare('INSERT OR IGNORE INTO managers (name, email) VALUES (?, ?)').run(name, mgrEmail);
+      if (!name) {
+        return res.status(400).json({ error: 'Manager name is required' });
+      }
+
+      const existing = db.prepare(
+        'SELECT id FROM managers WHERE LOWER(TRIM(name)) = LOWER(?) AND LOWER(TRIM(email)) = LOWER(?)'
+      ).get(name, mgrEmail);
+
+      if (!existing) {
+        db.prepare('INSERT INTO managers (name, email) VALUES (?, ?)').run(name, mgrEmail);
+      }
     } else {
-      db.prepare(config.insertSql).run(trimmed);
+      const existing = db.prepare(
+        `SELECT id FROM ${config.table} WHERE LOWER(TRIM(${config.column})) = LOWER(?)`
+      ).get(trimmed);
+
+      if (!existing) {
+        db.prepare(config.insertSql).run(trimmed);
+      }
     }
 
     return res.status(201).json({ success: true, type, value: trimmed });

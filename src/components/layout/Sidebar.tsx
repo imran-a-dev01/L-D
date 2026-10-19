@@ -2,20 +2,20 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Home, 
-  Users, 
-  CheckCircle2,
-  GripVertical
+  CheckCircle2, 
+  BarChart3, 
+  GripVertical 
 } from 'lucide-react';
 
 export type NavigationItem = 
   | 'overview' 
-  | 'employee' 
   | 'profile-complete' 
-  | 'directory';
+  | 'skill-coverage' 
+  | 'skills';
 
 interface SidebarProps {
   activeItem: NavigationItem;
-  onSelect: (item: NavigationItem) => void;
+  onSelect: (item: NavigationItem, path?: string) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   className?: string;
@@ -97,11 +97,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     localStorage.setItem('nexus_sidebar_width', String(DEFAULT_WIDTH));
   };
 
-  // Only the 3 items requested by user: Overview, Employee, Profile Complete
   const navItems = [
-    { id: 'overview' as const, label: 'Overview', icon: Home },
-    { id: 'employee' as const, label: 'Employee', icon: Users },
-    { id: 'profile-complete' as const, label: 'Profile Complete', icon: CheckCircle2 },
+    { id: 'overview' as const, label: 'Overview', icon: Home, path: '/admin' },
+    { id: 'profile-complete' as const, label: 'Profile Complete', icon: CheckCircle2, path: '/admin/profile-complete' },
+    { id: 'skill-coverage' as const, label: 'Skill Coverage', icon: BarChart3, path: '/admin/skill-coverage' },
   ];
 
   return (
@@ -149,8 +148,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <nav className="space-y-3.5 pr-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
-            // Check active state (handle 'directory' mapping to 'employee' if needed)
-            const isActive = activeItem === item.id || (item.id === 'employee' && activeItem === 'directory');
+            const isActive = activeItem === item.id;
 
             return (
               <motion.button
@@ -158,7 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 type="button"
                 whileHover={{ x: isCollapsed ? 0 : 3 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => onSelect(item.id)}
+                onClick={() => onSelect(item.id, item.path)}
                 title={isCollapsed ? item.label : undefined}
                 className={`relative w-full flex items-center rounded-2xl text-[15px] font-semibold transition-colors duration-200 cursor-pointer overflow-hidden ${
                   isCollapsed

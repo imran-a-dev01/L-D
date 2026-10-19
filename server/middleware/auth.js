@@ -1,14 +1,32 @@
 import jwt from 'jsonwebtoken';
 import db from '../db/database.js';
 
-export const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is required. Create a .env file with JWT_SECRET=<your-secret>');
+export const AUTH_REQUIRED = process.env.AUTH_REQUIRED === 'true';
+export const JWT_SECRET = process.env.JWT_SECRET || 'nexus_ld_default_dev_jwt_secret';
+
+if (AUTH_REQUIRED && !process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is required when AUTH_REQUIRED=true. Create a .env file with JWT_SECRET=<your-secret>');
   process.exit(1);
 }
 
+// Built-in public admin user when AUTH_REQUIRED is false
+const PUBLIC_ADMIN_USER = {
+  id: 'PUBLIC_ADMIN',
+  name: 'Admin',
+  email: 'admin@valuemomentum.com',
+  role: 'SUPER_ADMIN',
+  roleName: 'Super Administrator',
+  employeeId: null,
+  permissions: ['*'],
+};
+
 // Authenticate user via JWT Bearer token
 export function authenticateToken(req, res, next) {
+  if (!AUTH_REQUIRED) {
+    req.user = PUBLIC_ADMIN_USER;
+    return next();
+  }
+
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -27,7 +45,7 @@ export function authenticateToken(req, res, next) {
       WHERE u.id = ?
     `).get(decoded.id);
 
-    // Fallback 1: Resolve by decoded email if user ID changed due to re-seeding/reset
+    // Fallback: Resolve by decoded email if user ID changed due to re-seeding/reset
     if (!user && decoded.email) {
       user = db.prepare(`
         SELECT u.id, u.name, u.email, u.role_id, u.employee_id, u.status, r.name as role_name
@@ -35,18 +53,6 @@ export function authenticateToken(req, res, next) {
         JOIN roles r ON u.role_id = r.id
         WHERE LOWER(u.email) = LOWER(?)
       `).get(decoded.email);
-    }
-
-    // Fallback 2: Seamlessly preserve valid admin session if single super admin exists
-    if (!user) {
-      user = db.prepare(`
-        SELECT u.id, u.name, u.email, u.role_id, u.employee_id, u.status, r.name as role_name
-        FROM users u
-        JOIN roles r ON u.role_id = r.id
-        WHERE u.role_id = 'SUPER_ADMIN' AND u.status = 'ACTIVE'
-        ORDER BY u.id ASC
-        LIMIT 1
-      `).get();
     }
 
     if (!user || user.status !== 'ACTIVE') {
@@ -80,12 +86,16 @@ export function authenticateToken(req, res, next) {
 // RBAC Middleware to require specific permissions
 export function requirePermission(permission) {
   return (req, res, next) => {
+    if (!AUTH_REQUIRED) {
+      return next();
+    }
+
     if (!req.user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Super Admin has all access
-    if (req.user.role === 'SUPER_ADMIN' || req.user.permissions.includes(permission)) {
+    // Super Admin or wildcard has all access
+    if (req.user.role === 'SUPER_ADMIN' || req.user.permissions.includes('*') || req.user.permissions.includes(permission)) {
       return next();
     }
 
@@ -99,7 +109,10 @@ export function requirePermission(permission) {
 export function requireRole(allowedRoles) {
   const rolesArray = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
   return (req, res, next) => {
-    if (!req.user || !rolesArray.includes(req.user.role)) {
+    if (!AUTH_REQUIRED) {
+      return next();
+    }
+    if (!req.user || (req.user.role !== 'SUPER_ADMIN' && !rolesArray.includes(req.user.role))) {
       return res.status(403).json({ 
         error: `Forbidden: Requires one of [${rolesArray.join(', ')}] role` 
       });

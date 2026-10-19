@@ -10,10 +10,17 @@ import './db/seed.js'; // Ensure database & seed are initialized
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '127.0.0.1';
+
+// Allowed origins
+const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const corsOrigins = process.env.CORS_ORIGIN
+  ? Array.from(new Set([...defaultOrigins, process.env.CORS_ORIGIN]))
+  : defaultOrigins;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: corsOrigins,
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -36,6 +43,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error', details: err.message });
 });
 
-app.listen(PORT, () => {
-  console.log(`[SQLite Server] NEXUS L&D API running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`[SQLite Server] NEXUS L&D API running on http://${HOST}:${PORT}`);
 });

@@ -49,7 +49,7 @@ export const NexusLogo: React.FC<NexusLogoProps> = ({
       {/* Brand Text */}
       <div className="flex items-center gap-2">
         <span className={`font-extrabold tracking-tight text-[#0B1B4D] font-['Plus_Jakarta_Sans',sans-serif] ${textSize}`}>
-          L & T
+          L & D
         </span>
         {showSubtitle && (
           <div className="flex items-center gap-2">

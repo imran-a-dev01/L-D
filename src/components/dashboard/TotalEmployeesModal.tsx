@@ -18,7 +18,7 @@ export const TotalEmployeesModal: React.FC<TotalEmployeesModalProps> = ({
   employees,
   onViewEmployee,
 }) => {
-  const { practices, locations, domains } = useDropdowns();
+  const { practices, locations, domains, isLoading: dropdownsLoading, isError: dropdownsError, retry: retryDropdowns } = useDropdowns();
   const [search, setSearch] = useState('');
   const [selectedPractice, setSelectedPractice] = useState('All');
   const [selectedLocation, setSelectedLocation] = useState('All');
@@ -133,6 +133,9 @@ export const TotalEmployeesModal: React.FC<TotalEmployeesModalProps> = ({
               ]}
               size="sm"
               allowOther={false}
+              isLoading={dropdownsLoading}
+              isError={dropdownsError}
+              onRetry={retryDropdowns}
             />
           </div>
 
@@ -147,6 +150,9 @@ export const TotalEmployeesModal: React.FC<TotalEmployeesModalProps> = ({
               ]}
               size="sm"
               allowOther={false}
+              isLoading={dropdownsLoading}
+              isError={dropdownsError}
+              onRetry={retryDropdowns}
             />
           </div>
 
@@ -161,6 +167,9 @@ export const TotalEmployeesModal: React.FC<TotalEmployeesModalProps> = ({
               ]}
               size="sm"
               allowOther={false}
+              isLoading={dropdownsLoading}
+              isError={dropdownsError}
+              onRetry={retryDropdowns}
             />
           </div>
         </div>
@@ -201,7 +210,7 @@ export const TotalEmployeesModal: React.FC<TotalEmployeesModalProps> = ({
                         </span>
                       </div>
                       <div className="text-[11px] text-[#016DD9] font-medium truncate mt-0.5">
-                        {emp.designation}
+                        {emp.designation?.trim() || '—'}
                       </div>
                     </div>
                   </div>
@@ -210,11 +219,11 @@ export const TotalEmployeesModal: React.FC<TotalEmployeesModalProps> = ({
                   <div className="flex items-center gap-3 text-xs text-[#64748B] w-[180px] sm:w-[200px] shrink-0">
                     <span className="inline-flex items-center gap-1.5 font-medium text-[#0B1B4D] truncate">
                       <Briefcase className="w-3.5 h-3.5 text-[#94A3B8] shrink-0" />
-                      <span className="truncate">{emp.businessUnit}</span>
+                      <span className="truncate">{emp.businessUnit?.trim() || '—'}</span>
                     </span>
                     <span className="inline-flex items-center gap-1.5 text-slate-500 truncate">
                       <MapPin className="w-3.5 h-3.5 text-[#94A3B8] shrink-0" />
-                      <span className="truncate">{emp.location}</span>
+                      <span className="truncate">{emp.location?.trim() || '—'}</span>
                     </span>
                   </div>
 

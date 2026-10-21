@@ -1761,7 +1761,6 @@
       "id": "USR_MVB9J6E3TPGI",
       "name": "Admin",
       "email": "lndadmin@valuemomentum.com",
-      "password_hash": "$2b$10$RTSVtFPz/9trTdFLY2BChuz4boG35rBCDB4H7uOmmu07RGzeknMh.",
       "role_id": "SUPER_ADMIN",
       "employee_id": null,
       "status": "ACTIVE"

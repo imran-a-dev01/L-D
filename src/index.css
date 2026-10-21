@@ -375,6 +375,93 @@ select option {
    Enterprise KPI Cards: Modern Glassmorphism, Micro-Interactions & Shimmer
    ========================================================================== */
 
+/* ── Header KPI Chips: Entrance + Shimmer + Pulse Glow ── */
+
+/* ── Header KPI Chips: Entrance + Shimmer + Pulse Glow ── */
+
+/* Entrance: scale-in with staggered delay */
+@keyframes headerKpiEntrance {
+  0%   { opacity: 0; transform: scale(0.95) translateY(3px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Shimmer light sweep across white chip */
+@keyframes headerKpiShimmer {
+  0%, 75%  { transform: translateX(-220%) skewX(-18deg); opacity: 0; }
+  80%      { opacity: 1; }
+  100%     { transform: translateX(280%) skewX(-18deg); opacity: 0; }
+}
+
+/* Alternating soft border glow — blue chip */
+@keyframes headerKpiGlowBlue {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 0 0 0 rgba(1, 109, 217, 0);
+  }
+  50% {
+    box-shadow: 0 4px 14px -2px rgba(1, 109, 217, 0.20), 0 0 0 1px rgba(1, 109, 217, 0.25);
+  }
+}
+
+/* Alternating soft border glow — green chip */
+@keyframes headerKpiGlowGreen {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+  50% {
+    box-shadow: 0 4px 14px -2px rgba(16, 185, 129, 0.20), 0 0 0 1px rgba(16, 185, 129, 0.25);
+  }
+}
+
+.header-kpi-chip {
+  animation: headerKpiEntrance 0.5s cubic-bezier(0.22,1,0.36,1) both;
+  will-change: transform, box-shadow, opacity;
+  transition: transform 0.25s cubic-bezier(0.22,1,0.36,1),
+              box-shadow 0.25s ease,
+              border-color 0.25s ease,
+              background 0.2s ease;
+}
+
+.header-kpi-chip:hover {
+  transform: translateY(-1.5px) scale(1.02);
+  background: #ffffff;
+}
+
+.header-kpi-chip--blue {
+  animation: headerKpiEntrance 0.5s cubic-bezier(0.22,1,0.36,1) both,
+             headerKpiGlowBlue 3.5s ease-in-out 1s infinite;
+}
+
+.header-kpi-chip--blue:hover {
+  box-shadow: 0 6px 20px -3px rgba(1, 109, 217, 0.28), 0 0 0 1.5px rgba(1, 109, 217, 0.45) !important;
+}
+
+.header-kpi-chip--green {
+  animation: headerKpiEntrance 0.5s cubic-bezier(0.22,1,0.36,1) 0.12s both,
+             headerKpiGlowGreen 3.5s ease-in-out 2.75s infinite;
+}
+
+.header-kpi-chip--green:hover {
+  box-shadow: 0 6px 20px -3px rgba(16, 185, 129, 0.28), 0 0 0 1.5px rgba(16, 185, 129, 0.45) !important;
+}
+
+.header-kpi-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.7) 42%,
+    rgba(1, 109, 217, 0.12) 50%,
+    rgba(255, 255, 255, 0.8) 58%,
+    transparent 75%
+  );
+  animation: headerKpiShimmer 4.5s cubic-bezier(0.4, 0, 0.2, 1) 1.5s infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── end Header KPI Chips ── */
+
 .kpi-card-wrapper {
   will-change: transform, box-shadow, opacity;
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),

@@ -27,10 +27,13 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || '127.0.0.1';
 
-// Allowed origins
-const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+// Allowed origins — cover Vite's auto-increment range
+const defaultOrigins = [];
+for (let p = 5173; p <= 5185; p++) {
+  defaultOrigins.push(`http://localhost:${p}`, `http://127.0.0.1:${p}`);
+}
 const corsOrigins = process.env.CORS_ORIGIN
-  ? Array.from(new Set([...defaultOrigins, process.env.CORS_ORIGIN]))
+  ? Array.from(new Set([...defaultOrigins, ...process.env.CORS_ORIGIN.split(',').map(s => s.trim())]))
   : defaultOrigins;
 
 // Middleware
@@ -55,7 +58,7 @@ app.use('/api/analytics', analyticsRoutes);
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error('Unhandled server error:', err);
-  res.status(500).json({ error: 'Internal server error', details: err.message });
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 app.listen(PORT, HOST, () => {

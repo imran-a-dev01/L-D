@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight,
   CheckCircle2,
-  Sparkles,
   AlertCircle,
   Edit3,
   Eye,
-  Clock
+  Clock,
+  Shield,
+  Users,
+  BarChart3
 } from 'lucide-react';
 import { Employee } from '../types/employee';
 import { api } from '../services/api';
@@ -71,7 +73,11 @@ export const EmployeeProfilePage: React.FC = () => {
       isPopstateRef.current = false;
       return;
     }
-    window.history.pushState({ flowState }, '');
+    if (flowState === 'identify') {
+      window.history.replaceState({ flowState }, '');
+    } else {
+      window.history.pushState({ flowState }, '');
+    }
   }, [flowState]);
 
   useEffect(() => {
@@ -196,109 +202,219 @@ export const EmployeeProfilePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-[#EEF4FF] via-[#F4F7FC] to-[#E9EFF9] text-[#0B1B4D] flex flex-col font-['Inter',sans-serif] selection:bg-blue-100 selection:text-blue-900">
-      {/* Slim Top Bar */}
-      <header className="h-14 sm:h-16 bg-white/80 backdrop-blur-md border-b border-[#DFE5EE] sticky top-0 z-30 shadow-2xs">
+    <div className="min-h-screen w-full bg-[#E2E8F0] text-[#0B1B4D] flex flex-col font-['Inter',sans-serif] selection:bg-blue-100 selection:text-blue-900">
+      {/* Top Bar with Logo */}
+      <header className="h-14 sm:h-16 bg-white/95 backdrop-blur-md border-b border-[#CBD5E1] sticky top-0 z-30 shadow-xs">
         <PageContainer className="h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xl md:text-2xl font-black tracking-tight text-[#0B1B4D] font-['Plus_Jakarta_Sans',sans-serif] select-none">
-              OwlSure
-            </span>
+            <img src="/logo.png" alt="OwlSure" className="h-7 sm:h-8 w-auto select-none" />
             <div className="h-4 w-px bg-slate-200" />
-            <span className="text-xs font-semibold text-[#64748B] tracking-wide uppercase">
+            <span className="text-[11px] font-semibold text-[#64748B] tracking-wide uppercase">
               Learning & Development
             </span>
           </div>
+          {/* <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200/60">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#016DD9] animate-pulse" />
+            <span className="text-[10px] font-semibold text-[#016DD9]">Enterprise Portal</span>
+          </div> */}
         </PageContainer>
       </header>
 
       {/* Main Container */}
       <main className="flex-1 w-full flex flex-col justify-start">
-        <PageContainer className="flex-1 py-4 sm:py-6 md:py-8 flex flex-col justify-start">
-          <AnimatePresence mode="wait">
-          {/* STEP 1: IDENTIFY */}
-          {flowState === 'identify' && (
-            <motion.div
-              key="identify"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.25 }}
-              className="my-auto py-8 sm:py-16 max-w-lg mx-auto w-full"
-            >
-              <div className="bg-white rounded-3xl p-6 sm:p-10 border border-[#DFE5EE] shadow-xl shadow-blue-900/5 space-y-6">
-                <div className="text-center space-y-2">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#1265FF] to-blue-400 text-white flex items-center justify-center mx-auto shadow-md shadow-blue-500/20">
-                    <Sparkles className="w-7 h-7" />
-                  </div>
-                  <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[#0B1B4D] font-['Plus_Jakarta_Sans',sans-serif]">
-                    Skill Profile Registry
-                  </h1>
-                  <p className="text-xs sm:text-sm text-[#64748B]">
-                    Enter your Employee ID to register or update your skill profile
-                  </p>
+        {/* STEP 1: IDENTIFY — Split layout */}
+        {flowState === 'identify' && (
+          <motion.div
+            key="identify"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="flex-1 flex flex-col lg:flex-row"
+          >
+            {/* LEFT — Branding Panel (Deep Blue with flowing waves & workspace card) */}
+            <div className="hidden lg:flex lg:w-[48%] relative overflow-hidden bg-[#0A234A]">
+              {/* Radial gradient glow in top-right */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    'radial-gradient(circle at 75% 30%, rgba(28, 126, 244, 0.42) 0%, rgba(10, 35, 74, 0.25) 65%), linear-gradient(140deg, #092044 0%, #0E3670 48%, #144E96 100%)',
+                }}
+              />
+              {/* Soft glass highlight sheen */}
+              <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] via-transparent to-black/[0.10] pointer-events-none" />
+
+              {/* Elegant curved wave lines */}
+              <svg
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                viewBox="0 0 600 800"
+                fill="none"
+                preserveAspectRatio="none"
+              >
+                <path
+                  d="M -60 720 C 140 680, 240 480, 400 370 C 500 290, 560 160, 640 40"
+                  stroke="rgba(147, 197, 253, 0.32)"
+                  strokeWidth="1.5"
+                />
+                <path
+                  d="M -60 780 C 180 740, 290 530, 450 420 C 550 350, 590 220, 640 90"
+                  stroke="rgba(147, 197, 253, 0.24)"
+                  strokeWidth="1.2"
+                />
+                <path
+                  d="M -60 840 C 220 800, 330 600, 500 480 C 580 410, 620 280, 640 150"
+                  stroke="rgba(147, 197, 253, 0.16)"
+                  strokeWidth="1"
+                />
+              </svg>
+
+              {/* Glowing Particle Dots / Stars */}
+              <div className="absolute top-[18%] right-[30%] w-1.5 h-1.5 rounded-full bg-sky-300 shadow-[0_0_8px_#38bdf8] pointer-events-none" />
+              <div className="absolute top-[32%] right-[14%] w-1 h-1 rounded-full bg-sky-300 shadow-[0_0_6px_#38bdf8] pointer-events-none" />
+              <div className="absolute top-[44%] right-[42%] w-1.5 h-1.5 rounded-full bg-sky-300 shadow-[0_0_8px_#38bdf8] pointer-events-none" />
+              <div className="absolute top-[58%] right-[22%] w-1 h-1 rounded-full bg-sky-300 shadow-[0_0_6px_#38bdf8] pointer-events-none" />
+              <div className="absolute top-[14%] right-[54%] w-1 h-1 rounded-full bg-sky-300 shadow-[0_0_6px_#38bdf8] pointer-events-none" />
+              <div className="absolute top-[68%] left-[28%] w-1 h-1 rounded-full bg-sky-300 shadow-[0_0_6px_#38bdf8] pointer-events-none" />
+
+              {/* Content */}
+              <div className="relative z-20 flex flex-col justify-between p-10 xl:p-14 w-full h-full">
+                {/* Logo */}
+                <div>
+                  <img src="/logo-dark.png" alt="OwlSure" className="h-9 xl:h-10 w-auto select-none" />
+                  <p className="text-xs text-white/60 mt-2.5 font-medium">A business unit of ValueMomentum</p>
                 </div>
 
-                <form onSubmit={handleIdSubmit} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="employee-id-input"
-                      className="block text-xs font-bold text-[#0B1B4D] uppercase tracking-wider"
-                    >
-                      Employee ID
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="employee-id-input"
-                        ref={idInputRef}
-                        type="text"
-                        value={employeeIdInput}
-                        onChange={(e) => {
-                          setEmployeeIdInput(e.target.value);
-                          if (inputError) setInputError('');
-                        }}
-                        disabled={isCheckingId}
-                        placeholder="e.g. 105511 or EMP001"
-                        className={`w-full px-4 py-3.5 bg-[#F8FAFD] hover:bg-white focus:bg-white border ${
-                          inputError ? 'border-rose-400 ring-2 ring-rose-100' : 'border-[#DFE5EE] focus:border-[#1265FF] focus:ring-4 focus:ring-blue-100'
-                        } rounded-2xl text-base sm:text-lg text-[#0B1B4D] font-bold tracking-wide placeholder:font-normal placeholder:text-slate-400 focus:outline-none transition-all shadow-inner uppercase`}
-                      />
-                    </div>
-                    {inputError && (
-                      <p className="text-xs text-rose-500 font-medium flex items-center gap-1.5 pt-1">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>{inputError}</span>
-                      </p>
-                    )}
+                {/* Main Tagline */}
+                <div className="space-y-8 -mt-8">
+                  <div className="space-y-4">
+                    <h2 className="text-3xl xl:text-4xl 2xl:text-[2.75rem] font-extrabold text-white leading-tight font-['Plus_Jakarta_Sans',sans-serif]">
+                      Your skills,{' '}
+                      <span className="text-[#60A5FA]">your profile.</span>
+                    </h2>
+                    <p className="text-base xl:text-lg text-white/60 max-w-md leading-relaxed">
+                      Register and maintain your professional skill profile for enterprise-wide visibility.
+                    </p>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={isCheckingId}
-                    className="w-full py-3.5 px-6 rounded-2xl bg-[#1265FF] hover:bg-[#0E52D4] active:scale-[0.99] text-white font-bold text-sm shadow-md shadow-blue-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {isCheckingId ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        <span>Checking profile...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Continue</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
+                  {/* Feature Highlights */}
+                  <div className="space-y-4">
+                    {[
+                      { icon: Users, text: 'Register your employee skill profile' },
+                      { icon: BarChart3, text: 'Track proficiency & domain expertise' },
+                      { icon: Shield, text: 'Enterprise-grade secure platform' },
+                    ].map(({ icon: Icon, text }) => (
+                      <div key={text} className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0">
+                          <Icon className="w-4 h-4 text-[#60A5FA]" />
+                        </div>
+                        <span className="text-sm text-white/75 font-medium">{text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-                <div className="pt-2 border-t border-slate-100 text-center">
-                  <span className="text-[11px] text-[#64748B]">
-                    New employees will be guided through profile setup. Existing profiles will be available for review and updates.
-                  </span>
+                {/* Bottom Footer */}
+                <div className="text-xs text-white/30 font-medium">
+                  &copy; {new Date().getFullYear()} OwlSure &middot; Enterprise Workforce Intelligence
                 </div>
               </div>
-            </motion.div>
-          )}
+            </div>
+
+            {/* RIGHT — Employee ID Form */}
+            <div className="flex-1 flex items-center justify-center p-6 sm:p-10 bg-[#F2F2F7]">
+              <div className="w-full max-w-md">
+                {/* Mobile branding (hidden on lg+) */}
+                <div className="lg:hidden text-center mb-6">
+                  <img src="/logo.png" alt="OwlSure" className="h-8 w-auto mx-auto" />
+                  <p className="text-xs text-[#64748B] mt-1.5">Enterprise Workforce Intelligence</p>
+                </div>
+
+                <div className="bg-white rounded-3xl p-6 sm:p-10 border border-[#CBD5E1] shadow-2xl shadow-slate-900/10 space-y-6 relative overflow-hidden">
+                  {/* Top accent line */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#016DD9] via-[#1265FF] to-[#60A5FA]" />
+
+                  <div className="text-center">
+                    <img
+                      src="/emp-logo.png"
+                      alt="Employee Portal"
+                      className="h-12 sm:h-14 w-auto mx-auto object-contain select-none drop-shadow-md"
+                    />
+                    <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[#0B1B4D] font-['Plus_Jakarta_Sans',sans-serif] mt-2 mb-1">
+                      Skill Profile Registry
+                    </h1>
+                    <p className="text-xs sm:text-sm text-[#64748B]">
+                      Enter your Employee ID to register or update your skill profile
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleIdSubmit} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="employee-id-input"
+                        className="block text-xs font-bold text-[#0B1B4D] uppercase tracking-wider"
+                      >
+                        Employee ID
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="employee-id-input"
+                          ref={idInputRef}
+                          type="text"
+                          value={employeeIdInput}
+                          onChange={(e) => {
+                            setEmployeeIdInput(e.target.value);
+                            if (inputError) setInputError('');
+                          }}
+                          disabled={isCheckingId}
+                          placeholder="e.g. 105511 or EMP001"
+                          className={`w-full px-4 py-3.5 bg-[#F8FAFD] hover:bg-white focus:bg-white border ${
+                            inputError ? 'border-rose-400 ring-2 ring-rose-100' : 'border-[#DFE5EE] focus:border-[#1265FF] focus:ring-4 focus:ring-blue-100'
+                          } rounded-2xl text-base sm:text-lg text-[#0B1B4D] font-bold tracking-wide placeholder:font-normal placeholder:text-slate-400 focus:outline-none transition-all shadow-inner uppercase`}
+                        />
+                      </div>
+                      {inputError && (
+                        <p className="text-xs text-rose-500 font-medium flex items-center gap-1.5 pt-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{inputError}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isCheckingId}
+                      className="w-full py-3.5 px-6 rounded-2xl bg-[#016DD9] hover:bg-[#005bb8] active:scale-[0.99] text-white font-bold text-sm shadow-md shadow-blue-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {isCheckingId ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Checking profile...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Continue</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  <div className="pt-2 border-t border-slate-100 text-center">
+                    <span className="text-[11px] text-[#64748B]">
+                      New employees will be guided through profile setup. Existing profiles will be available for review and updates.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* All other states use PageContainer layout */}
+        {flowState !== 'identify' && (
+        <PageContainer className="flex-1 py-4 sm:py-6 md:py-8 flex flex-col justify-start">
+          <AnimatePresence mode="wait">
 
           {/* STEP 2a: NEW PROFILE WIZARD */}
           {flowState === 'new-wizard' && (
@@ -469,6 +585,7 @@ export const EmployeeProfilePage: React.FC = () => {
           )}
         </AnimatePresence>
       </PageContainer>
+        )}
     </main>
   </div>
   );

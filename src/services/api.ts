@@ -72,6 +72,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem('nexus_token');
+      localStorage.removeItem('nexus_user');
+      window.location.href = '/admin';
+    }
     const errorMsg = data.error || `HTTP error ${response.status}`;
     throw new Error(errorMsg);
   }

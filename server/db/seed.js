@@ -1,4 +1,5 @@
 import db from './database.js';
+import bcrypt from 'bcrypt';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -72,7 +73,7 @@ export function seedDatabase() {
   runSeed();
 }
 
-export async function importSeedData() {
+export function importSeedData() {
   if (!fs.existsSync(SEED_DATA_PATH)) return;
 
   const empCount = db.prepare('SELECT COUNT(*) as count FROM employees').get();
@@ -83,22 +84,23 @@ export async function importSeedData() {
 
   const runImport = db.transaction(() => {
     const tables = [
-      { key: 'business_units', sql: 'INSERT OR IGNORE INTO business_units (id, name) VALUES (?, ?)' },
-      { key: 'locations', sql: 'INSERT OR IGNORE INTO locations (id, name) VALUES (?, ?)' },
-      { key: 'designations', sql: 'INSERT OR IGNORE INTO designations (id, name, grade_level) VALUES (?, ?, ?)' },
-      { key: 'owlsure_designations', sql: 'INSERT OR IGNORE INTO owlsure_designations (id, name) VALUES (?, ?)' },
-      { key: 'current_roles', sql: 'INSERT OR IGNORE INTO current_roles (id, name) VALUES (?, ?)' },
-      { key: 'deployable_roles', sql: 'INSERT OR IGNORE INTO deployable_roles (id, name) VALUES (?, ?)' },
-      { key: 'projects', sql: 'INSERT OR IGNORE INTO projects (id, name) VALUES (?, ?)' },
-      { key: 'customers', sql: 'INSERT OR IGNORE INTO customers (id, name) VALUES (?, ?)' },
-      { key: 'managers', sql: 'INSERT OR IGNORE INTO managers (id, name, email) VALUES (?, ?, ?)' },
-      { key: 'domains', sql: 'INSERT OR IGNORE INTO domains (id, name, is_standard) VALUES (?, ?, ?)' },
+      { key: 'business_units', cols: ['id', 'name'] },
+      { key: 'locations', cols: ['id', 'name'] },
+      { key: 'designations', cols: ['id', 'name', 'grade_level'] },
+      { key: 'owlsure_designations', cols: ['id', 'name'] },
+      { key: 'current_roles', cols: ['id', 'name'] },
+      { key: 'deployable_roles', cols: ['id', 'name'] },
+      { key: 'projects', cols: ['id', 'name'] },
+      { key: 'customers', cols: ['id', 'name'] },
+      { key: 'managers', cols: ['id', 'name', 'email'] },
+      { key: 'domains', cols: ['id', 'name', 'is_standard'] },
     ];
 
-    for (const { key, sql } of tables) {
+    for (const { key, cols } of tables) {
       if (!data[key]) continue;
-      const stmt = db.prepare(sql);
-      for (const row of data[key]) stmt.run(...Object.values(row));
+      const placeholders = cols.map(() => '?').join(', ');
+      const stmt = db.prepare(`INSERT OR IGNORE INTO ${key} (${cols.join(', ')}) VALUES (${placeholders})`);
+      for (const row of data[key]) stmt.run(...cols.map(c => row[c]));
     }
 
     if (data.skills) {
@@ -143,9 +145,13 @@ export async function importSeedData() {
     }
 
     if (data.users) {
+      const DEFAULT_PASSWORD = 'Valuemomentum@2026';
       const stmt = db.prepare(`INSERT OR IGNORE INTO users (id, name, email, password_hash, role_id, employee_id, status)
         VALUES (?, ?, ?, ?, ?, ?, ?)`);
-      for (const r of data.users) stmt.run(r.id, r.name, r.email, r.password_hash, r.role_id, r.employee_id, r.status);
+      for (const r of data.users) {
+        const hash = r.password_hash || bcrypt.hashSync(DEFAULT_PASSWORD, 10);
+        stmt.run(r.id, r.name, r.email, hash, r.role_id, r.employee_id, r.status);
+      }
     }
   });
 

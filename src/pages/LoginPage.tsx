@@ -4,8 +4,7 @@ import {
   Lock, 
   Eye, 
   EyeOff, 
-  ArrowRight, 
-  CheckCircle2
+  ArrowRight
 } from 'lucide-react';
 import { api, UserProfile } from '../services/api';
 
@@ -17,7 +16,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -54,7 +52,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         loop
         muted
         playsInline
-        className="absolute inset-0 w-full h-full object-cover z-0"
+        disablePictureInPicture
+        controlsList="nodownload nopictureinpicture nofullscreen"
+        className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none select-none"
         src="/login_new.mp4"
       />
 
@@ -68,18 +68,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {/* Brand Header */}
           <div className="text-center mb-5">
             <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/90 border border-[#E3EAF5] shadow-xs mb-3">
-              <span className="text-base font-black tracking-tight text-[#0B1B4D] font-['Plus_Jakarta_Sans',sans-serif]">
+              {/* <span className="text-base font-black tracking-tight text-[#0B1B4D] font-['Plus_Jakarta_Sans',sans-serif]">
                 L & T
-              </span>
+              </span> */}
               <span className="w-1.5 h-1.5 rounded-full bg-[#016DD9] shadow-[0_0_8px_#016DD9]" />
               <span className="text-xs text-[#64748B] font-semibold">L&D Intelligence</span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B1B4D] tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">
-              Welcome back
+              Skill Capture
             </h1>
             <p className="text-xs sm:text-sm text-[#64748B] mt-1 leading-relaxed">
-              Sign in with your enterprise credentials.
+              Sign in with your OwlSure credentials.
             </p>
           </div>
 
@@ -97,10 +97,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <div className="space-y-1.5 text-left">
               <label className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider flex items-center justify-between">
                 <span>Work Email</span>
-                <span className="text-[11px] font-normal text-slate-400 lowercase">@organization</span>
+                {/* <span className="text-[11px] font-normal text-slate-400 lowercase">@organization</span> */}
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-[#94A3B8] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Mail className="w-4 h-4 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="email"
                   name="user_work_email"
@@ -110,7 +110,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com"
-                  className="glass-morphism-input-light w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none transition-all duration-150"
+                  className="glass-morphism-input-light w-full pl-9 pr-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none transition-all duration-150"
                 />
               </div>
             </div>
@@ -119,10 +119,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <div className="space-y-1.5 text-left">
               <label className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider flex items-center justify-between">
                 <span>Password</span>
-                <span className="text-[11px] text-slate-400 font-normal">Encrypted</span>
+                {/* <span className="text-[11px] text-slate-400 font-normal">Encrypted</span> */}
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-[#94A3B8] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Lock className="w-4 h-4 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="user_work_password"
@@ -132,7 +132,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="glass-morphism-input-light w-full pl-11 pr-11 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none transition-all duration-150"
+                  className="glass-morphism-input-light w-full pl-9 pr-10 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none transition-all duration-150"
                 />
                 <button
                   type="button"
@@ -143,29 +143,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-            </div>
-
-            {/* Remember & Forgot options */}
-            <div className="flex items-center justify-between text-xs pt-1">
-              <label className="flex items-center gap-2 text-[#64748B] cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded text-[#016DD9] border-slate-300 focus:ring-[#016DD9]/20"
-                />
-                <span>Remember session</span>
-              </label>
-              <a
-                href="#forgot"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert('For password resets, contact your enterprise L&D administrator.');
-                }}
-                className="text-[#016DD9] hover:underline font-semibold"
-              >
-                Forgot password?
-              </a>
             </div>
 
             {/* Sign in Button */}
@@ -187,9 +164,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </form>
 
           {/* Access Note */}
-          <div className="mt-4 text-center text-[11px] text-[#94A3B8]">
+          {/* <div className="mt-4 text-center text-[11px] text-[#94A3B8]">
             Authenticated via SQLite relational database with bcrypt & JWT RBAC.
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

@@ -62,8 +62,6 @@ function AdminLayout({ onLogout }: { onLogout: () => void }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [_lastFetchTimestamp, setLastFetchTimestamp] = useState<number>(Date.now());
-
   // Modals state
   const [selectedEmployeeForView, setSelectedEmployeeForView] = useState<Employee | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -109,7 +107,6 @@ function AdminLayout({ onLogout }: { onLogout: () => void }) {
       dropdownService.fetchAll().catch(() => {});
       skillService.fetchAllFromBackend().catch(() => {});
 
-      setLastFetchTimestamp(Date.now());
       setLoadError(null);
     } catch (err: any) {
       console.error('Error fetching employees from backend:', err);
@@ -127,13 +124,13 @@ function AdminLayout({ onLogout }: { onLogout: () => void }) {
     fetchEmployeesFromBackend(false);
   }, [fetchEmployeesFromBackend]);
 
-  // Auto-refetch: every 5s while visible, and immediately on tab focus or visibilitychange
+  // Auto-refetch: every 30s while visible, and immediately on tab focus or visibilitychange
   useEffect(() => {
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         fetchEmployeesFromBackend(true);
       }
-    }, 5000);
+    }, 30000);
 
     const handleFocus = () => {
       if (document.visibilityState === 'visible') {

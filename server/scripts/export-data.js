@@ -29,7 +29,7 @@ const data = {
   employee_learning_technologies: db.prepare('SELECT employee_id, technology_name FROM employee_learning_technologies').all(),
   employee_domain_expertise: db.prepare(`SELECT id, employee_id, domain, custom_domain, experience_years,
     proficiency, last_used, last_project, specialization FROM employee_domain_expertise`).all(),
-  users: db.prepare('SELECT id, name, email, password_hash, role_id, employee_id, status FROM users').all(),
+  users: db.prepare('SELECT id, name, email, role_id, employee_id, status FROM users').all(),
 };
 
 fs.writeFileSync(OUTPUT, JSON.stringify(data, null, 2));

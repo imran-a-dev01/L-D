@@ -11,9 +11,8 @@ import {
   Lock, 
   Building2, 
   Plus, 
-  Trash2, 
-  Edit2, 
-  Calendar, 
+  Trash2,
+  Calendar,
   ArrowRight, 
   ArrowLeft,
   X,
@@ -122,10 +121,9 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
 
     setReportingManager(cleanName);
 
-    // Auto-fill manager email if available in options and email field is currently empty
     const matchedOpt = managerOptions.find((m) => m.value.toLowerCase() === cleanName.toLowerCase());
     const targetEmail = extractedEmail || matchedOpt?.sublabel || '';
-    if (targetEmail && !reportingManagerEmail) {
+    if (targetEmail) {
       setReportingManagerEmail(targetEmail);
     }
 
@@ -156,10 +154,9 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
     initialEmployee?.domainExpertise || []
   );
   const [newDomain, setNewDomain] = useState('');
-  const [customDomainText, setCustomDomainText] = useState('');
   const [domainExp, setDomainExp] = useState<number | string>(2.0);
   const [domainProficiency, setDomainProficiency] = useState<ProficiencyLevel>('Intermediate');
-  const [domainLastUsed, setDomainLastUsed] = useState('Oct 2025');
+  const [domainLastUsed, setDomainLastUsed] = useState(() => new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
   const [domainProject, setDomainProject] = useState('');
   const [domainSpec, setDomainSpec] = useState('');
 
@@ -176,6 +173,12 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
 
     if (!name.trim()) newErrors.name = 'Employee Name is required';
     if (!email.trim() || !email.includes('@')) newErrors.email = 'Valid Email Address is required';
+    if (!designation.trim()) newErrors.designation = 'Designation is required';
+    if (!businessUnit.trim()) newErrors.businessUnit = 'Business Unit is required';
+    if (!location.trim()) newErrors.location = 'Location is required';
+    if (!currentRole.trim()) newErrors.currentRole = 'Current Role is required';
+    if (!owlSureDesignation.trim()) newErrors.owlSureDesignation = 'OwlSure Designation is required';
+    if (!reportingManager.trim()) newErrors.reportingManager = 'Reporting Manager is required';
 
     if (reportingManagerEmail.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -227,7 +230,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
   };
 
   const handleAddDomain = () => {
-    const finalDomain = (newDomain === 'Others' || newDomain === '__OTHER__') ? customDomainText.trim() : newDomain.trim();
+    const finalDomain = newDomain.trim();
     if (!finalDomain) {
       toast('Please enter or select a domain', 'error');
       return;
@@ -239,7 +242,6 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
     const entry: DomainExpertise = {
       id: 'de_' + Math.random().toString(36).substring(2, 8),
       domain: finalDomain,
-      customDomain: (newDomain === 'Others' || newDomain === '__OTHER__') ? customDomainText.trim() : undefined,
       experienceYears: Number(domainExp) || 0,
       proficiency: domainProficiency,
       lastUsed: domainLastUsed,
@@ -249,6 +251,11 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
 
     setDomainExpertiseList([...domainExpertiseList, entry]);
     setNewDomain('');
+    setDomainExp(2.0);
+    setDomainProficiency('Intermediate');
+    setDomainLastUsed(new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
+    setDomainProject('');
+    setDomainSpec('');
   };
 
   useEffect(() => {
@@ -386,7 +393,9 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
               <div
                 key={st.num}
                 onClick={() => {
-                  if (st.num < currentStep || validateStep1()) {
+                  if (st.num < currentStep) {
+                    setCurrentStep(st.num as 1 | 2 | 3 | 4);
+                  } else if (st.num === currentStep + 1 && (currentStep !== 1 || validateStep1())) {
                     setCurrentStep(st.num as 1 | 2 | 3 | 4);
                   }
                 }}
@@ -742,7 +751,9 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                   value={totalExperience}
                   onChange={(e) => {
                     const val = e.target.value;
-                    setTotalExperience(val === '' ? '' : val);
+                    if (val === '') { setTotalExperience(''); return; }
+                    const num = parseFloat(val);
+                    setTotalExperience(isNaN(num) ? '' : Math.max(0, num).toString());
                   }}
                   className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100 rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none transition-all shadow-2xs h-11"
                 />
@@ -1198,19 +1209,6 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                   onRetry={retryDropdowns}
                 />
               </div>
-
-              {newDomain === 'Others' && (
-                <div>
-                  <label className="block text-xs font-bold text-[#0B1B4D] mb-1.5">Specify Custom Domain</label>
-                  <input
-                    type="text"
-                    value={customDomainText}
-                    onChange={(e) => setCustomDomainText(e.target.value)}
-                    placeholder="e.g., Supply Chain"
-                    className="w-full px-3.5 py-2 bg-white border border-[#E3EAF5] focus:border-[#1265FF] focus:ring-1 focus:ring-blue-100 rounded-xl text-xs sm:text-sm font-medium shadow-2xs focus:outline-none h-11 transition-all"
-                  />
-                </div>
-              )}
 
               <div>
                 <label className="block text-xs font-bold text-[#0B1B4D] mb-1.5">Experience (Years)</label>

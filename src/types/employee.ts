@@ -6,7 +6,7 @@ export interface Employee {
   id: string; // e.g. "EMP001", "EMP00123"
   name: string;
   email: string;
-  designation: string; // Designation / Grade
+  designation: string; // Designation
   businessUnit: string; // Business Unit / Practice
   reportingManager: string; // Reporting Manager Name
   reportingManagerEmail?: string; // Reporting Manager Email (optional)

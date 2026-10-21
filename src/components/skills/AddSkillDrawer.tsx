@@ -38,7 +38,7 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
   const [customTechInput, setCustomTechInput] = useState('');
 
   const [proficiency, setProficiency] = useState<ProficiencyLevel>('Intermediate');
-  const [experienceYears, setExperienceYears] = useState<number>(2.0);
+  const [experienceYears, setExperienceYears] = useState<number | string>(2.0);
   const [lastUsed, setLastUsed] = useState<string>('');
   const [lastProject, setLastProject] = useState('');
   const [specialization, setSpecialization] = useState('');
@@ -379,8 +379,12 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
                 step="0.5"
                 min="0"
                 max="30"
+                placeholder="0"
                 value={experienceYears}
-                onChange={(e) => setExperienceYears(parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setExperienceYears(val === '' ? '' : val);
+                }}
                 className="w-full px-3.5 py-2 bg-[#F8FAFD] hover:bg-white focus:bg-white border border-[#E3EAF5] focus:border-[#016DD9] rounded-xl text-xs md:text-sm text-[#0B1B4D] font-medium focus:outline-none transition-all shadow-2xs"
               />
             </div>

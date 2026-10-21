@@ -1,3 +1,18 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
+
+const envPath = path.join(rootDir, '.env');
+const envExamplePath = path.join(rootDir, '.env.example');
+if (!fs.existsSync(envPath) && fs.existsSync(envExamplePath)) {
+  fs.copyFileSync(envExamplePath, envPath);
+  console.log('[Setup] Created .env from .env.example — edit it to customize settings.');
+}
+
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';

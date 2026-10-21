@@ -1,5 +1,5 @@
 import { Employee } from '../types/employee';
-import { TechnicalSkill, CatalogSkill } from '../types/skill';
+import { CatalogSkill } from '../types/skill';
 
 const API_BASE = '/api';
 
@@ -53,35 +53,37 @@ export interface DropdownOptionsResponse {
   profileStatuses: string[];
 }
 
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
+  };
+
+  const token = localStorage.getItem('nexus_token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const errorMsg = data.error || `HTTP error ${response.status}`;
+    throw new Error(errorMsg);
+  }
+
+  return data as T;
+}
+
 export const api = {
-  async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string> || {}),
-    };
-
-    const token = localStorage.getItem('nexus_token');
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      const errorMsg = data.error || `HTTP error ${response.status}`;
-      throw new Error(errorMsg);
-    }
-
-    return data as T;
-  },
+  request,
 
   async login(email: string, password: string): Promise<LoginResponse> {
-    const res = await this.request<LoginResponse>('/auth/login', {
+    const res = await request<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
@@ -97,11 +99,11 @@ export const api = {
 
   // Master Dropdown Reference Data
   async getDropdowns(): Promise<DropdownOptionsResponse> {
-    return this.request<DropdownOptionsResponse>('/dropdowns');
+    return request<DropdownOptionsResponse>('/dropdowns');
   },
 
   async addDropdownOption(type: string, value: string, email?: string): Promise<{ success: boolean; type: string; value: string }> {
-    return this.request<{ success: boolean; type: string; value: string }>('/dropdowns', {
+    return request<{ success: boolean; type: string; value: string }>('/dropdowns', {
       method: 'POST',
       body: JSON.stringify({ type, value, ...(email ? { email } : {}) }),
     });
@@ -118,59 +120,59 @@ export const api = {
       });
     }
     const qs = query.toString() ? `?${query.toString()}` : '';
-    return this.request<{ employees: Employee[]; total: number }>(`/employees${qs}`);
+    return request<{ employees: Employee[]; total: number }>(`/employees${qs}`);
   },
 
   async getEmployeeById(id: string): Promise<{ employee: Employee }> {
-    return this.request<{ employee: Employee }>(`/employees/${encodeURIComponent(id)}`);
+    return request<{ employee: Employee }>(`/employees/${encodeURIComponent(id)}`);
   },
 
   async createEmployee(employee: Employee): Promise<{ employee: Employee; message: string }> {
-    return this.request<{ employee: Employee; message: string }>('/employees', {
+    return request<{ employee: Employee; message: string }>('/employees', {
       method: 'POST',
       body: JSON.stringify(employee),
     });
   },
 
   async updateEmployee(id: string, employee: Employee): Promise<{ employee: Employee; message: string }> {
-    return this.request<{ employee: Employee; message: string }>(`/employees/${encodeURIComponent(id)}`, {
+    return request<{ employee: Employee; message: string }>(`/employees/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(employee),
     });
   },
 
   async deleteEmployee(id: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/employees/${encodeURIComponent(id)}`, {
+    return request<{ message: string }>(`/employees/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
   },
 
   async resetEmployees(): Promise<{ message: string; total: number }> {
-    return this.request<{ message: string; total: number }>('/employees/reset', {
+    return request<{ message: string; total: number }>('/employees/reset', {
       method: 'POST',
     });
   },
 
   // Skills Catalog APIs
   async getSkills(): Promise<{ skills: CatalogSkill[] }> {
-    return this.request<{ skills: CatalogSkill[] }>('/skills');
+    return request<{ skills: CatalogSkill[] }>('/skills');
   },
 
   async createSkill(skill: { name: string; category: string; description?: string }): Promise<{ skill: CatalogSkill; message: string }> {
-    return this.request<{ skill: CatalogSkill; message: string }>('/skills', {
+    return request<{ skill: CatalogSkill; message: string }>('/skills', {
       method: 'POST',
       body: JSON.stringify(skill),
     });
   },
 
   async deleteSkill(id: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/skills/${encodeURIComponent(id)}`, {
+    return request<{ message: string }>(`/skills/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
   },
 
   // Live Workforce Analytics
   async getAnalytics(): Promise<AnalyticsResponse> {
-    return this.request<AnalyticsResponse>('/analytics/overview');
+    return request<AnalyticsResponse>('/analytics/overview');
   },
 };

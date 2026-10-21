@@ -138,7 +138,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
               className="btn-shake-secondary inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 transition-all cursor-pointer shadow-2xs"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Use a different ID</span>
+              <span>Back</span>
             </button>
           )}
 

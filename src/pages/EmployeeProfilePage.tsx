@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowRight, 
-  Search, 
-  CheckCircle2, 
-  Sparkles, 
-  AlertCircle, 
-  Edit3, 
-  Eye, 
-  Clock, 
-  ArrowLeft 
+import {
+  ArrowRight,
+  CheckCircle2,
+  Sparkles,
+  AlertCircle,
+  Edit3,
+  Eye,
+  Clock
 } from 'lucide-react';
 import { Employee } from '../types/employee';
 import { api } from '../services/api';
@@ -63,6 +61,42 @@ export const EmployeeProfilePage: React.FC = () => {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [flowState]);
+
+  // Sync flow state with browser history for back button support
+  const isPopstateRef = useRef(false);
+
+  useEffect(() => {
+    if (isPopstateRef.current) {
+      isPopstateRef.current = false;
+      return;
+    }
+    window.history.pushState({ flowState }, '');
+  }, [flowState]);
+
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const prevState = e.state?.flowState as ProfileFlowState | undefined;
+      isPopstateRef.current = true;
+
+      if (flowState === 'new-wizard' || flowState === 'edit-wizard') {
+        if (!window.confirm('Are you sure you want to go back? Any unsaved changes will be lost.')) {
+          window.history.pushState({ flowState }, '');
+          return;
+        }
+      }
+
+      if (prevState) {
+        setFlowState(prevState);
+        if (prevState === 'identify') setCurrentEmployee(null);
+      } else {
+        setFlowState('identify');
+        setCurrentEmployee(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [flowState]);
 
   // Smooth scroll to top whenever flow state transitions
@@ -155,7 +189,7 @@ export const EmployeeProfilePage: React.FC = () => {
   };
 
   const handleCancelWizard = () => {
-    if (window.confirm('Are you sure you want to discard your changes and use a different ID?')) {
+    if (window.confirm('Are you sure you want to go back? Any unsaved changes will be lost.')) {
       setFlowState('identify');
       setCurrentEmployee(null);
     }
@@ -163,22 +197,18 @@ export const EmployeeProfilePage: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-[#EEF4FF] via-[#F4F7FC] to-[#E9EFF9] text-[#0B1B4D] flex flex-col font-['Inter',sans-serif] selection:bg-blue-100 selection:text-blue-900">
-      {/* Slim Top Bar: "L & D" Logo only, no menu, no admin link */}
+      {/* Slim Top Bar */}
       <header className="h-14 sm:h-16 bg-white/80 backdrop-blur-md border-b border-[#DFE5EE] sticky top-0 z-30 shadow-2xs">
         <PageContainer className="h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-xl md:text-2xl font-black tracking-tight text-[#0B1B4D] font-['Plus_Jakarta_Sans',sans-serif] select-none">
-              ValueMomentum
+              OwlSure
             </span>
             <div className="h-4 w-px bg-slate-200" />
             <span className="text-xs font-semibold text-[#64748B] tracking-wide uppercase">
               Learning & Development
             </span>
           </div>
-
-          {/* <div className="text-[11px] font-medium text-[#64748B] bg-slate-100/80 px-2.5 py-1 rounded-full border border-slate-200/60 hidden sm:block">
-            Enterprise Skill Registry
-          </div> */}
         </PageContainer>
       </header>
 
@@ -211,8 +241,8 @@ export const EmployeeProfilePage: React.FC = () => {
 
                 <form onSubmit={handleIdSubmit} className="space-y-4">
                   <div className="space-y-1.5">
-                    <label 
-                      htmlFor="employee-id-input" 
+                    <label
+                      htmlFor="employee-id-input"
                       className="block text-xs font-bold text-[#0B1B4D] uppercase tracking-wider"
                     >
                       Employee ID
@@ -280,32 +310,6 @@ export const EmployeeProfilePage: React.FC = () => {
               transition={{ duration: 0.25 }}
               className="space-y-4"
             >
-              {/* Notice Banner */}
-              <div className="bg-blue-50 border border-blue-200/80 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-blue-100 text-[#1265FF] flex items-center justify-center shrink-0">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-[#0B1B4D]">
-                      New profile registration for ID <span className="font-extrabold text-[#1265FF]">{activeNormalizedId}</span>
-                    </div>
-                    <div className="text-[11px] text-[#64748B]">
-                      Complete the sections below to register your skills and competencies. Your Employee ID has been prefilled.
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleCancelWizard}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#0B1B4D] hover:bg-white rounded-xl border border-transparent hover:border-slate-200 transition-all cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Use different ID</span>
-                </button>
-              </div>
-
               {/* Reused Multi-step Wizard */}
               <CreateEmployeePage
                 initialId={activeNormalizedId}
@@ -327,35 +331,6 @@ export const EmployeeProfilePage: React.FC = () => {
               transition={{ duration: 0.25 }}
               className="space-y-4"
             >
-              {/* Profile Found Confirmation Banner */}
-              <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-emerald-950">
-                      Profile Verified for ID <span className="font-extrabold">{currentEmployee.id}</span>
-                    </div>
-                    <div className="text-[11px] text-emerald-700">
-                      Your registered profile is displayed below. Select "Edit Profile" to modify any section.
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFlowState('identify');
-                    setCurrentEmployee(null);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:text-emerald-950 bg-white hover:bg-emerald-100/50 rounded-xl border border-emerald-200 transition-all cursor-pointer shadow-2xs"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Use a different ID</span>
-                </button>
-              </div>
-
               {/* Full Saved Profile Display Component */}
               <EmployeeProfileView
                 employee={currentEmployee}
@@ -379,31 +354,6 @@ export const EmployeeProfilePage: React.FC = () => {
               transition={{ duration: 0.25 }}
               className="space-y-4"
             >
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-blue-100 text-[#1265FF] flex items-center justify-center shrink-0">
-                    <Edit3 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-[#0B1B4D]">
-                      Editing Profile: <span className="font-extrabold">{currentEmployee.name}</span> ({currentEmployee.id})
-                    </div>
-                    <div className="text-[11px] text-[#64748B]">
-                      Modify your skills, competencies, or organizational details and submit to update the registry.
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setFlowState('view-profile')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-all cursor-pointer shadow-2xs"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to View</span>
-                </button>
-              </div>
-
               <CreateEmployeePage
                 initialEmployee={currentEmployee}
                 lockId={true}
@@ -521,5 +471,5 @@ export const EmployeeProfilePage: React.FC = () => {
       </PageContainer>
     </main>
   </div>
-);
+  );
 };

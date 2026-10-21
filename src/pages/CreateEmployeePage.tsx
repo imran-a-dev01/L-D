@@ -70,7 +70,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
   const [currentProject, setCurrentProject] = useState(initialEmployee?.currentProject || '');
   const [currentCustomer, setCurrentCustomer] = useState(initialEmployee?.currentCustomer || '');
   const [location, setLocation] = useState(initialEmployee?.location || '');
-  const [totalExperience, setTotalExperience] = useState<number>(initialEmployee?.totalExperience || 0);
+  const [totalExperience, setTotalExperience] = useState<number | string>(initialEmployee?.totalExperience ?? 0);
   const [currentRole, setCurrentRole] = useState(initialEmployee?.currentRole || '');
   const [owlSureDesignation, setOwlSureDesignation] = useState(initialEmployee?.owlSureDesignation || '');
   const [deployableRoles, setDeployableRoles] = useState<string[]>(
@@ -157,7 +157,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
   );
   const [newDomain, setNewDomain] = useState('');
   const [customDomainText, setCustomDomainText] = useState('');
-  const [domainExp, setDomainExp] = useState(2.0);
+  const [domainExp, setDomainExp] = useState<number | string>(2.0);
   const [domainProficiency, setDomainProficiency] = useState<ProficiencyLevel>('Intermediate');
   const [domainLastUsed, setDomainLastUsed] = useState('Oct 2025');
   const [domainProject, setDomainProject] = useState('');
@@ -240,7 +240,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       id: 'de_' + Math.random().toString(36).substring(2, 8),
       domain: finalDomain,
       customDomain: (newDomain === 'Others' || newDomain === '__OTHER__') ? customDomainText.trim() : undefined,
-      experienceYears: domainExp,
+      experienceYears: Number(domainExp) || 0,
       proficiency: domainProficiency,
       lastUsed: domainLastUsed,
       lastProject: domainProject.trim(),
@@ -263,7 +263,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       setCurrentProject(initialEmployee.currentProject || '');
       setCurrentCustomer(initialEmployee.currentCustomer || '');
       setLocation(initialEmployee.location || '');
-      setTotalExperience(initialEmployee.totalExperience || 0);
+      setTotalExperience(initialEmployee.totalExperience ?? 0);
       setCurrentRole(initialEmployee.currentRole || '');
       setOwlSureDesignation(initialEmployee.owlSureDesignation || '');
       setDeployableRoles(initialEmployee.deployableRoles || []);
@@ -304,8 +304,14 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       currentRole,
       owlSureDesignation,
       deployableRoles,
-      technicalSkills,
-      domainExpertise: domainExpertiseList,
+      technicalSkills: technicalSkills.map((s) => ({
+        ...s,
+        experienceYears: Number(s.experienceYears) || 0,
+      })),
+      domainExpertise: domainExpertiseList.map((d) => ({
+        ...d,
+        experienceYears: Number(d.experienceYears) || 0,
+      })),
       immediateTechnologies,
       learningTechnologies,
       profileCompletion: 0,
@@ -342,8 +348,21 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
           </h1>
         </div>
 
-        {/* Top Right Save Profile Button */}
+        {/* Top Right Cancel + Save Profile Buttons */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
+                onCancel();
+              }
+            }}
+            disabled={isSaving}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-sm transition-all cursor-pointer rounded-xl bg-white hover:bg-[#F1F5F9] text-[#64748B] hover:text-[#0B1B4D] border border-[#E3EAF5] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Cancel</span>
+          </button>
           <button
             type="button"
             onClick={handleSaveFinalProfile}
@@ -509,11 +528,11 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
               </div>
             </div>
 
-            {/* ROW 1 - Field 4: Designation / Grade */}
+            {/* ROW 1 - Field 4: Designation */}
             <div className="flex flex-col justify-start">
               <div className="flex items-center justify-between h-5 mb-2 select-none">
                 <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
-                  <span>Designation / Grade</span>
+                  <span>Designation</span>
                   <span className="text-rose-500 font-bold">*</span>
                 </label>
               </div>
@@ -719,8 +738,12 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                   step="0.1"
                   min="0"
                   max="40"
+                  placeholder="0"
                   value={totalExperience}
-                  onChange={(e) => setTotalExperience(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setTotalExperience(val === '' ? '' : val);
+                  }}
                   className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100 rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none transition-all shadow-2xs h-11"
                 />
               </div>
@@ -967,10 +990,11 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                             type="number"
                             step="0.5"
                             min="0"
-                            value={skill.experienceYears}
+                            placeholder="0"
+                            value={skill.experienceYears === 0 ? 0 : (skill.experienceYears ?? '')}
                             onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              setTechnicalSkills(technicalSkills.map((s) => s.id === skill.id ? { ...s, experienceYears: val } : s));
+                              const val = e.target.value === '' ? '' : e.target.value;
+                              setTechnicalSkills(technicalSkills.map((s) => s.id === skill.id ? { ...s, experienceYears: val as any } : s));
                             }}
                             className="w-full px-2.5 py-1 bg-[#F8FAFD] border border-[#E3EAF5] focus:border-[#1265FF] focus:bg-white rounded-lg text-xs font-semibold text-[#0B1B4D] h-8"
                           />
@@ -1193,8 +1217,13 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                 <input
                   type="number"
                   step="0.5"
+                  min="0"
+                  placeholder="0"
                   value={domainExp}
-                  onChange={(e) => setDomainExp(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDomainExp(val === '' ? '' : val);
+                  }}
                   className="w-full px-3.5 py-2 bg-white border border-[#E3EAF5] focus:border-[#1265FF] focus:ring-1 focus:ring-blue-100 rounded-xl text-xs sm:text-sm font-medium shadow-2xs focus:outline-none h-11 transition-all"
                 />
               </div>

@@ -1,4 +1,11 @@
 import db from './database.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const SEED_DATA_PATH = path.join(__dirname, 'seed-data.json');
 
 export function seedDatabase() {
   console.log('Seeding SQLite database with roles, permissions, reference data, and skills catalog...');
@@ -65,6 +72,88 @@ export function seedDatabase() {
   runSeed();
 }
 
+export async function importSeedData() {
+  if (!fs.existsSync(SEED_DATA_PATH)) return;
+
+  const empCount = db.prepare('SELECT COUNT(*) as count FROM employees').get();
+  if (empCount && empCount.count > 0) return;
+
+  console.log('[Setup] Importing data from seed-data.json...');
+  const data = JSON.parse(fs.readFileSync(SEED_DATA_PATH, 'utf-8'));
+
+  const runImport = db.transaction(() => {
+    const tables = [
+      { key: 'business_units', sql: 'INSERT OR IGNORE INTO business_units (id, name) VALUES (?, ?)' },
+      { key: 'locations', sql: 'INSERT OR IGNORE INTO locations (id, name) VALUES (?, ?)' },
+      { key: 'designations', sql: 'INSERT OR IGNORE INTO designations (id, name, grade_level) VALUES (?, ?, ?)' },
+      { key: 'owlsure_designations', sql: 'INSERT OR IGNORE INTO owlsure_designations (id, name) VALUES (?, ?)' },
+      { key: 'current_roles', sql: 'INSERT OR IGNORE INTO current_roles (id, name) VALUES (?, ?)' },
+      { key: 'deployable_roles', sql: 'INSERT OR IGNORE INTO deployable_roles (id, name) VALUES (?, ?)' },
+      { key: 'projects', sql: 'INSERT OR IGNORE INTO projects (id, name) VALUES (?, ?)' },
+      { key: 'customers', sql: 'INSERT OR IGNORE INTO customers (id, name) VALUES (?, ?)' },
+      { key: 'managers', sql: 'INSERT OR IGNORE INTO managers (id, name, email) VALUES (?, ?, ?)' },
+      { key: 'domains', sql: 'INSERT OR IGNORE INTO domains (id, name, is_standard) VALUES (?, ?, ?)' },
+    ];
+
+    for (const { key, sql } of tables) {
+      if (!data[key]) continue;
+      const stmt = db.prepare(sql);
+      for (const row of data[key]) stmt.run(...Object.values(row));
+    }
+
+    if (data.skills) {
+      const stmt = db.prepare('INSERT OR IGNORE INTO skills (id, name, slug, category, description, is_verified) VALUES (?, ?, ?, ?, ?, ?)');
+      for (const r of data.skills) stmt.run(r.id, r.name, r.slug, r.category, r.description, r.is_verified);
+    }
+
+    if (data.employees) {
+      const stmt = db.prepare(`INSERT OR IGNORE INTO employees
+        (id, name, email, designation, business_unit, reporting_manager, reporting_manager_email, current_project, current_customer, location, total_experience, current_role, owlsure_designation, profile_completion, status, avatar_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      for (const r of data.employees) stmt.run(r.id, r.name, r.email, r.designation, r.business_unit, r.reporting_manager, r.reporting_manager_email, r.current_project, r.current_customer, r.location, r.total_experience, r.current_role, r.owlsure_designation, r.profile_completion, r.status, r.avatar_color);
+    }
+
+    if (data.employee_skills) {
+      const stmt = db.prepare(`INSERT OR IGNORE INTO employee_skills
+        (id, employee_id, skill_name, category, proficiency, experience_years, last_used, last_project, specialization)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      for (const r of data.employee_skills) stmt.run(r.id, r.employee_id, r.skill_name, r.category, r.proficiency, r.experience_years, r.last_used, r.last_project, r.specialization);
+    }
+
+    if (data.employee_deployable_roles) {
+      const stmt = db.prepare('INSERT OR IGNORE INTO employee_deployable_roles (employee_id, role_name) VALUES (?, ?)');
+      for (const r of data.employee_deployable_roles) stmt.run(r.employee_id, r.role_name);
+    }
+
+    if (data.employee_immediate_technologies) {
+      const stmt = db.prepare('INSERT OR IGNORE INTO employee_immediate_technologies (employee_id, technology_name) VALUES (?, ?)');
+      for (const r of data.employee_immediate_technologies) stmt.run(r.employee_id, r.technology_name);
+    }
+
+    if (data.employee_learning_technologies) {
+      const stmt = db.prepare('INSERT OR IGNORE INTO employee_learning_technologies (employee_id, technology_name) VALUES (?, ?)');
+      for (const r of data.employee_learning_technologies) stmt.run(r.employee_id, r.technology_name);
+    }
+
+    if (data.employee_domain_expertise) {
+      const stmt = db.prepare(`INSERT OR IGNORE INTO employee_domain_expertise
+        (id, employee_id, domain, custom_domain, experience_years, proficiency, last_used, last_project, specialization)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      for (const r of data.employee_domain_expertise) stmt.run(r.id, r.employee_id, r.domain, r.custom_domain, r.experience_years, r.proficiency, r.last_used, r.last_project, r.specialization);
+    }
+
+    if (data.users) {
+      const stmt = db.prepare(`INSERT OR IGNORE INTO users (id, name, email, password_hash, role_id, employee_id, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`);
+      for (const r of data.users) stmt.run(r.id, r.name, r.email, r.password_hash, r.role_id, r.employee_id, r.status);
+    }
+  });
+
+  runImport();
+  const imported = db.prepare('SELECT COUNT(*) as count FROM employees').get();
+  console.log(`[Setup] Imported ${imported.count} employees from seed-data.json.`);
+}
+
 export function resetDatabase() {
   const runReset = db.transaction(() => {
     db.exec('DELETE FROM employee_skills');
@@ -108,3 +197,5 @@ try {
   console.log('Initializing database tables and running seed...', e.message);
   seedDatabase();
 }
+
+importSeedData();

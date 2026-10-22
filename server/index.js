@@ -72,5 +72,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, HOST, () => {
-  console.log(`[SQLite Server] NEXUS L&D API running on http://localhost:${PORT}`);
+  console.log(`[NEXUS L&D] Server running on http://localhost:${PORT} (API + Web UI)`);
 });

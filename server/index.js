@@ -24,8 +24,8 @@ import analyticsRoutes from './routes/analytics.js';
 import './db/seed.js'; // Ensure database & seed are initialized
 
 const app = express();
-const PORT = process.env.PORT || 3001;
-const HOST = process.env.HOST || '127.0.0.1';
+const PORT = process.env.PORT || 80;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Allowed origins — cover Vite's auto-increment range
 const defaultOrigins = [];
@@ -54,6 +54,16 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/skills', skillRoutes);
 app.use('/api/dropdowns', dropdownRoutes);
 app.use('/api/analytics', analyticsRoutes);
+
+const distPath = path.join(rootDir, 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  // SPA fallback (React router URL direct refresh pannalum work aaga)
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 // Global Error Handler
 app.use((err, req, res, next) => {

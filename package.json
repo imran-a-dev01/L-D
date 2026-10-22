@@ -3,10 +3,11 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "node ./node_modules/vite/bin/vite.js",
+    "scripts": {
+          "dev": "node ./node_modules/vite/bin/vite.js",
     "server": "node server/index.js",
-    "start": "node ./node_modules/concurrently/dist/bin/index.js \"node server/index.js\" \"node ./node_modules/vite/bin/vite.js\"",
+    "dev:all": "node ./node_modules/concurrently/dist/bin/index.js \"node server/index.js\" \"node ./node_modules/vite/bin/vite.js\"",
+    "start": "node server/index.js",
     "build": "node ./node_modules/typescript/bin/tsc -b && node ./node_modules/vite/bin/vite.js build",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "export-data": "node server/scripts/export-data.js"

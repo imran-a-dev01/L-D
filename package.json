@@ -3,11 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-    "scripts": {
-          "dev": "node ./node_modules/vite/bin/vite.js",
-    "server": "node server/index.js",
-    "dev:all": "node ./node_modules/concurrently/dist/bin/index.js \"node server/index.js\" \"node ./node_modules/vite/bin/vite.js\"",
-    "start": "node server/index.js",
+  "scripts": {
+    "dev": "node ./node_modules/vite/bin/vite.js",
+    "server": "node --no-warnings server/index.js",
+    "dev:all": "node ./node_modules/concurrently/dist/bin/index.js \"node --no-warnings server/index.js\" \"node ./node_modules/vite/bin/vite.js\"",
+    "start": "node --no-warnings server/index.js",
+    "start:azure": "npm run build && node --no-warnings server/index.js",
     "build": "node ./node_modules/typescript/bin/tsc -b && node ./node_modules/vite/bin/vite.js build",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "export-data": "node server/scripts/export-data.js"
@@ -15,7 +16,6 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^13.0.3",
     "concurrently": "^10.0.6",
     "cors": "^2.8.6",
     "dotenv": "^18.0.8",
@@ -31,7 +31,6 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "@types/better-sqlite3": "^9.6.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
@@ -42,5 +41,8 @@
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
+  },
+  "overrides": {
+    "uuid": ">=11.1.1"
   }
 }

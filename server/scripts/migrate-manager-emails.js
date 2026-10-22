@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -32,7 +32,7 @@ try {
   process.exit(1);
 }
 
-const db = new Database(DB_PATH);
+const db = new DatabaseSync(DB_PATH);
 
 // Helper to calculate fabricated email pattern for a name
 function getFabricatedEmail(name) {
@@ -42,7 +42,21 @@ function getFabricatedEmail(name) {
 
 const suffixRegex = /^(.+?)\s*\((.+?@.+?)\)$/;
 
-const migrationTransaction = db.transaction(() => {
+function localTransaction(fn) {
+  return (...args) => {
+    db.exec('BEGIN');
+    try {
+      const result = fn(...args);
+      db.exec('COMMIT');
+      return result;
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+  };
+}
+
+const migrationTransaction = localTransaction(() => {
   let splitCount = 0;
   let blankedEmpEmails = 0;
   let blankedMgrEmails = 0;

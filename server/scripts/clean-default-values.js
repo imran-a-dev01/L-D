@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -41,7 +41,7 @@ fs.copyFileSync(DB_PATH, backupPath);
 console.log('Backup created successfully.\n');
 
 // 2. Open DB and perform transaction
-const db = new Database(DB_PATH);
+const db = new DatabaseSync(DB_PATH);
 
 // Tables and specific columns to check for blanking
 const cleanupTargets = [
@@ -52,7 +52,21 @@ const cleanupTargets = [
 
 let totalModified = 0;
 
-const cleanupTx = db.transaction(() => {
+function localTransaction(fn) {
+  return (...args) => {
+    db.exec('BEGIN');
+    try {
+      const result = fn(...args);
+      db.exec('COMMIT');
+      return result;
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+  };
+}
+
+const cleanupTx = localTransaction(() => {
   for (const { table, columns } of cleanupTargets) {
     for (const col of columns) {
       for (const val of TARGET_VALUES) {

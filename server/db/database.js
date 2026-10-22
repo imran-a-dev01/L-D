@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -10,10 +10,23 @@ const __dirname = path.dirname(__filename);
 const DB_PATH = path.join(__dirname, 'nexus_ld.sqlite');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
-// Initialize better-sqlite3 with WAL mode for high concurrency
-const db = new Database(DB_PATH, { verbose: process.env.NODE_ENV === 'development' ? null : null });
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+const db = new DatabaseSync(DB_PATH);
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA foreign_keys = ON');
+
+export function transaction(fn) {
+  return (...args) => {
+    db.exec('BEGIN');
+    try {
+      const result = fn(...args);
+      db.exec('COMMIT');
+      return result;
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+  };
+}
 
 // Run safe, idempotent migrations
 export function runMigrations() {
@@ -40,7 +53,7 @@ export function runMigrations() {
         console.warn('Migration backup warning:', backupErr);
       }
 
-      const migrateManagers = db.transaction(() => {
+      const migrateManagers = transaction(() => {
         db.prepare(`
           CREATE TABLE IF NOT EXISTS managers_new (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

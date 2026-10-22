@@ -24,7 +24,7 @@ import analyticsRoutes from './routes/analytics.js';
 import './db/seed.js'; // Ensure database & seed are initialized
 
 const app = express();
-const PORT = process.env.PORT || 80;
+const PORT = process.env.PORT || 81;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Allowed origins — cover Vite's auto-increment range
@@ -45,7 +45,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', database: 'SQLite (better-sqlite3)', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', database: 'SQLite (node:sqlite)', timestamp: new Date().toISOString() });
 });
 
 // API Routes
@@ -59,7 +59,7 @@ const distPath = path.join(rootDir, 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
   // SPA fallback (React router URL direct refresh pannalum work aaga)
-  app.get('*', (req, res, next) => {
+  app.get('{*path}', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
     res.sendFile(path.join(distPath, 'index.html'));
   });
@@ -72,5 +72,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, HOST, () => {
-  console.log(`[SQLite Server] NEXUS L&D API running on http://${HOST}:${PORT}`);
+  console.log(`[SQLite Server] NEXUS L&D API running on http://localhost:${PORT}`);
 });

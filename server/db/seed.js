@@ -1,4 +1,4 @@
-import db from './database.js';
+import db, { transaction } from './database.js';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
@@ -11,7 +11,7 @@ const SEED_DATA_PATH = path.join(__dirname, 'seed-data.json');
 export function seedDatabase() {
   console.log('Seeding SQLite database with roles, permissions, reference data, and skills catalog...');
 
-  const runSeed = db.transaction(() => {
+  const runSeed = transaction(() => {
     // ------------------------------------------------------------------------
     // 1. Seed Roles & Permissions (RBAC)
     // ------------------------------------------------------------------------
@@ -82,7 +82,7 @@ export function importSeedData() {
   console.log('[Setup] Importing data from seed-data.json...');
   const data = JSON.parse(fs.readFileSync(SEED_DATA_PATH, 'utf-8'));
 
-  const runImport = db.transaction(() => {
+  const runImport = transaction(() => {
     const tables = [
       { key: 'business_units', cols: ['id', 'name'] },
       { key: 'locations', cols: ['id', 'name'] },
@@ -161,7 +161,7 @@ export function importSeedData() {
 }
 
 export function resetDatabase() {
-  const runReset = db.transaction(() => {
+  const runReset = transaction(() => {
     db.exec('DELETE FROM employee_skills');
     db.exec('DELETE FROM employee_deployable_roles');
     db.exec('DELETE FROM employee_immediate_technologies');

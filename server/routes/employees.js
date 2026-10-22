@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import db from '../db/database.js';
+import db, { transaction } from '../db/database.js';
 import { authenticateToken, requirePermission } from '../middleware/auth.js';
 import { resetDatabase } from '../db/seed.js';
 
@@ -312,7 +312,7 @@ router.post('/', authenticateToken, requirePermission('employee:create'), (req, 
     }
   }
 
-  const createTransaction = db.transaction(() => {
+  const createTransaction = transaction(() => {
     // 1. Insert main employee
     db.prepare(`
       INSERT INTO employees (
@@ -470,7 +470,7 @@ router.put('/:id', authenticateToken, requirePermission('employee:update'), (req
     }
   }
 
-  const updateTransaction = db.transaction(() => {
+  const updateTransaction = transaction(() => {
     // 1. Update main employee using storedId
     db.prepare(`
       UPDATE employees SET

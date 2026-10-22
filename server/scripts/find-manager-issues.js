@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DB_PATH = path.join(__dirname, '..', 'db', 'nexus_ld.sqlite');
 
-const db = new Database(DB_PATH, { readonly: true });
+const db = new DatabaseSync(DB_PATH, { readOnly: true });
 
 console.log('=== FINDING MANAGER DATA & FABRICATED EMAIL ISSUES (READ-ONLY) ===');
 console.log(`Database path: ${DB_PATH}\n`);

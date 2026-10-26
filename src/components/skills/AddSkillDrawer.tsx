@@ -249,7 +249,7 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
           {/* Form Fields: 2-Column Grid with Compact Spacing */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
             {/* Col 1: Skill Category */}
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <label className="block text-[11px] font-bold text-[#0B1B4D] uppercase tracking-wide">
                 {fieldLabel('category', 'Skill Category')} <span className="text-rose-500">*</span>
               </label>
@@ -272,25 +272,25 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
             </div>
 
             {/* Col 2: Technology / Skill Selection */}
-            <div className="space-y-1 relative">
+            <div className="space-y-1 relative min-w-0">
               <label className="block text-[11px] font-bold text-[#0B1B4D] uppercase tracking-wide">
                 {fieldLabel('technology', 'Technology / Skill')} <span className="text-rose-500">*</span>
               </label>
 
               {isCustomMode ? (
                 <div className="space-y-1">
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <input
                       type="text"
                       value={customTechInput}
                       onChange={(e) => setCustomTechInput(e.target.value)}
-                      placeholder={`Enter custom ${category} skill...`}
-                      className="flex-1 px-3.5 py-2 bg-[#F8FAFD] focus:bg-white border border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100 rounded-xl text-xs md:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs"
+                      placeholder="Enter custom skill..."
+                      className="flex-1 min-w-0 px-3 py-2 bg-[#F8FAFD] focus:bg-white border border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100 rounded-xl text-xs md:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs"
                     />
                     <button
                       type="button"
                       onClick={handleAddNewCustomTech}
-                      className="px-3.5 py-2 bg-blue-50 text-[#1265FF] hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold shrink-0 cursor-pointer transition-colors"
+                      className="px-3 py-2 bg-blue-50 text-[#1265FF] hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold shrink-0 whitespace-nowrap cursor-pointer transition-colors"
                     >
                       Save to Catalog
                     </button>

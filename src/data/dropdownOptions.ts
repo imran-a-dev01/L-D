@@ -31,13 +31,6 @@ export const DESIGNATIONS: readonly string[] = new Proxy([] as string[], {
   },
 });
 
-export const OWLSURE_DESIGNATIONS: readonly string[] = new Proxy([] as string[], {
-  get(_target, prop) {
-    const list = dropdownService.get().owlsureDesignations;
-    return Reflect.get(list, prop);
-  },
-});
-
 export const CURRENT_ROLES: readonly string[] = new Proxy([] as string[], {
   get(_target, prop) {
     const list = dropdownService.get().currentRoles;

@@ -15,7 +15,6 @@ export interface Employee {
   location: string;
   totalExperience: number; // e.g. 2.5, 3.5
   currentRole: string; // Current Role (Not Deployable)
-  owlSureDesignation: string; // Designation as per OwlSure
   deployableRoles: string[]; // Searchable multi-select chips
   technicalSkills: TechnicalSkill[];
   domainExpertise: DomainExpertise[];
@@ -25,6 +24,7 @@ export interface Employee {
   status: ProfileStatus;
   updatedAt: string;
   avatarColor?: string;
+  customData?: Record<string, string>;
 }
 
 export interface EmployeeFilterOptions {

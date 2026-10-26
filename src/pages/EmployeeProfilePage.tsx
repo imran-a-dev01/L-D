@@ -321,16 +321,31 @@ export const EmployeeProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT — Employee ID Form */}
-            <div className="flex-1 flex items-center justify-center p-6 sm:p-10 bg-[#F2F2F7]">
-              <div className="w-full max-w-md">
+            {/* RIGHT — Employee ID Form with Soft Continuing Blue Ambient Background */}
+            <div className="flex-1 flex items-center justify-center p-6 sm:p-10 relative overflow-hidden bg-gradient-to-br from-[#EBF3FB] via-[#F1F6FC] to-[#F8FAFD]">
+              {/* Soft ambient blue radial glow continuing from the left branding panel */}
+              <div 
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'radial-gradient(ellipse 75% 70% at 0% 50%, rgba(28, 126, 244, 0.16) 0%, rgba(96, 165, 250, 0.07) 50%, transparent 80%)'
+                }}
+              />
+              {/* Gentle bottom-right ambient accent */}
+              <div 
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'radial-gradient(circle at 100% 100%, rgba(1, 109, 217, 0.06) 0%, transparent 60%)'
+                }}
+              />
+
+              <div className="w-full max-w-md relative z-10">
                 {/* Mobile branding (hidden on lg+) */}
                 <div className="lg:hidden text-center mb-6">
                   <img src="/logo.png" alt="OwlSure" className="h-8 w-auto mx-auto" />
                   <p className="text-xs text-[#64748B] mt-1.5">Enterprise Workforce Intelligence</p>
                 </div>
 
-                <div className="bg-white rounded-3xl p-6 sm:p-10 border border-[#CBD5E1] shadow-2xl shadow-slate-900/10 space-y-6 relative overflow-hidden">
+                <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 sm:p-10 border border-[#CBD5E1]/90 shadow-2xl shadow-blue-950/10 space-y-6 relative overflow-hidden">
                   {/* Top accent line */}
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#016DD9] via-[#1265FF] to-[#60A5FA]" />
 

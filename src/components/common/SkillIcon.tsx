@@ -15,7 +15,7 @@ import { SkillCategory } from '../../types/skill';
 
 interface SkillIconProps {
   name: string;
-  category?: SkillCategory;
+  category?: SkillCategory | string;
   size?: number | 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
   showFallbackLabel?: boolean;
@@ -61,6 +61,7 @@ export const SkillIcon: React.FC<SkillIconProps> = ({
       case 'DevOps & Tools':
         return <Wrench {...iconProps} className="text-amber-600" />;
       case 'Domain Expertise':
+      case 'Domain':
         return <Briefcase {...iconProps} className="text-rose-600" />;
       default:
         return <Cpu {...iconProps} className="text-slate-600" />;

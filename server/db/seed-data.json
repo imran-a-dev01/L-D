@@ -23,16 +23,16 @@
   ],
   "locations": [
     {
-      "id": 33,
-      "name": "Chennai"
-    },
-    {
       "id": 35,
       "name": "Coimbatore"
     },
     {
       "id": 37,
       "name": "Hyderabad"
+    },
+    {
+      "id": 57,
+      "name": "Chennai"
     }
   ],
   "designations": [
@@ -75,40 +75,6 @@
       "id": 55,
       "name": "Vice President",
       "grade_level": null
-    }
-  ],
-  "owlsure_designations": [
-    {
-      "id": 25,
-      "name": "Associate Software Engineer"
-    },
-    {
-      "id": 27,
-      "name": "Senior Director"
-    },
-    {
-      "id": 28,
-      "name": "Technical Lead"
-    },
-    {
-      "id": 29,
-      "name": "Senior Software Engineer"
-    },
-    {
-      "id": 31,
-      "name": "Technical Architect"
-    },
-    {
-      "id": 32,
-      "name": "Director"
-    },
-    {
-      "id": 33,
-      "name": "Software Engineer"
-    },
-    {
-      "id": 35,
-      "name": "Vice President"
     }
   ],
   "current_roles": [
@@ -321,6 +287,10 @@
     {
       "id": 36,
       "name": "Multiple"
+    },
+    {
+      "id": 51,
+      "name": "user customer"
     }
   ],
   "managers": [
@@ -348,6 +318,11 @@
       "id": 43,
       "name": "Karthik Sundaram",
       "email": "karthik.s@valuemomentum.com"
+    },
+    {
+      "id": 49,
+      "name": "chandra",
+      "email": "chandra@valuemomentum.com"
     }
   ],
   "domains": [
@@ -370,6 +345,76 @@
       "id": 39,
       "name": "Healthcare",
       "is_standard": 1
+    },
+    {
+      "id": 58,
+      "name": "user domain",
+      "is_standard": 1
+    }
+  ],
+  "skill_categories": [
+    {
+      "id": 16,
+      "name": "Frontend"
+    },
+    {
+      "id": 17,
+      "name": "Backend"
+    },
+    {
+      "id": 18,
+      "name": "Database"
+    },
+    {
+      "id": 19,
+      "name": "Cloud"
+    },
+    {
+      "id": 20,
+      "name": "Data"
+    },
+    {
+      "id": 21,
+      "name": "DevOps & Tools"
+    }
+  ],
+  "proficiency_levels": [
+    {
+      "id": 5,
+      "name": "Beginner",
+      "sort_order": 1
+    },
+    {
+      "id": 6,
+      "name": "Intermediate",
+      "sort_order": 2
+    },
+    {
+      "id": 7,
+      "name": "Advanced",
+      "sort_order": 3
+    },
+    {
+      "id": 8,
+      "name": "Expert",
+      "sort_order": 4
+    }
+  ],
+  "profile_statuses": [
+    {
+      "id": 4,
+      "name": "Complete",
+      "sort_order": 1
+    },
+    {
+      "id": 5,
+      "name": "In Progress",
+      "sort_order": 2
+    },
+    {
+      "id": 6,
+      "name": "Needs Review",
+      "sort_order": 3
     }
   ],
   "skills": [
@@ -556,8 +601,20 @@
       "category": "Backend",
       "description": "",
       "is_verified": 1
+    },
+    {
+      "id": "skill_qx44hhk",
+      "name": "ex",
+      "slug": "ex",
+      "category": "ex",
+      "description": "",
+      "is_verified": 1
     }
   ],
+  "custom_sections": [],
+  "custom_fields": [],
+  "custom_field_options": [],
+  "master_data_overrides": [],
   "employees": [
     {
       "id": "105511",
@@ -572,7 +629,6 @@
       "location": "Chennai",
       "total_experience": 2,
       "current_role": "Data Engineer",
-      "owlsure_designation": "Associate Software Engineer",
       "profile_completion": 100,
       "status": "Complete",
       "avatar_color": "bg-blue-100 text-[#1265FF]"
@@ -590,7 +646,6 @@
       "location": "Coimbatore",
       "total_experience": 18,
       "current_role": "Delivery Head",
-      "owlsure_designation": "Senior Director",
       "profile_completion": 100,
       "status": "Complete",
       "avatar_color": "bg-blue-100 text-[#1265FF]"
@@ -608,7 +663,6 @@
       "location": "Coimbatore",
       "total_experience": 8,
       "current_role": "Tech Lead",
-      "owlsure_designation": "Technical Lead",
       "profile_completion": 100,
       "status": "Complete",
       "avatar_color": "bg-blue-100 text-[#1265FF]"
@@ -626,7 +680,6 @@
       "location": "Hyderabad",
       "total_experience": 6,
       "current_role": "Full Stack Developer",
-      "owlsure_designation": "Senior Software Engineer",
       "profile_completion": 100,
       "status": "Complete",
       "avatar_color": "bg-blue-100 text-[#1265FF]"
@@ -644,7 +697,6 @@
       "location": "Coimbatore",
       "total_experience": 2,
       "current_role": "Junior Developer",
-      "owlsure_designation": "Associate Software Engineer",
       "profile_completion": 100,
       "status": "Complete",
       "avatar_color": "bg-blue-100 text-[#1265FF]"
@@ -662,7 +714,6 @@
       "location": "Hyderabad",
       "total_experience": 12,
       "current_role": "Solution Architect",
-      "owlsure_designation": "Technical Architect",
       "profile_completion": 100,
       "status": "Complete",
       "avatar_color": "bg-blue-100 text-[#1265FF]"
@@ -680,7 +731,6 @@
       "location": "Hyderabad",
       "total_experience": 15,
       "current_role": "Practice Head",
-      "owlsure_designation": "Director",
       "profile_completion": 100,
       "status": "Complete",
       "avatar_color": "bg-blue-100 text-[#1265FF]"
@@ -698,7 +748,6 @@
       "location": "Chennai",
       "total_experience": 4,
       "current_role": "QA Engineer",
-      "owlsure_designation": "Software Engineer",
       "profile_completion": 100,
       "status": "Complete",
       "avatar_color": "bg-blue-100 text-[#1265FF]"
@@ -716,7 +765,6 @@
       "location": "Chennai",
       "total_experience": 5,
       "current_role": "Data Engineer",
-      "owlsure_designation": "Senior Software Engineer",
       "profile_completion": 100,
       "status": "Complete",
       "avatar_color": "bg-blue-100 text-[#1265FF]"
@@ -734,7 +782,6 @@
       "location": "Hyderabad",
       "total_experience": 22,
       "current_role": "VP Engineering",
-      "owlsure_designation": "Vice President",
       "profile_completion": 90,
       "status": "Complete",
       "avatar_color": "bg-blue-100 text-[#1265FF]"
@@ -752,9 +799,25 @@
       "location": "Coimbatore",
       "total_experience": 1.5,
       "current_role": "Frontend Developer",
-      "owlsure_designation": "Associate Software Engineer",
       "profile_completion": 100,
       "status": "Complete",
+      "avatar_color": "bg-blue-100 text-[#1265FF]"
+    },
+    {
+      "id": "105533",
+      "name": "Imran A",
+      "email": "Imran@valuemomentum.com",
+      "designation": "Director",
+      "business_unit": "Data Engineering",
+      "reporting_manager": "chandra",
+      "reporting_manager_email": "chandra@valuemomentum.com",
+      "current_project": "",
+      "current_customer": "",
+      "location": "Coimbatore",
+      "total_experience": 3,
+      "current_role": "Delivery Head",
+      "profile_completion": 70,
+      "status": "In Progress",
       "avatar_color": "bg-blue-100 text-[#1265FF]"
     }
   ],
@@ -991,83 +1054,6 @@
       "specialization": ""
     },
     {
-      "id": "sk_26",
-      "employee_id": "105518",
-      "skill_name": "Java",
-      "category": "Backend",
-      "proficiency": "Intermediate",
-      "experience_years": 3,
-      "last_used": "Oct 2026",
-      "last_project": "",
-      "specialization": ""
-    },
-    {
-      "id": "sk_27",
-      "employee_id": "105518",
-      "skill_name": "Selenium",
-      "category": "DevOps & Tools",
-      "proficiency": "Advanced",
-      "experience_years": 4,
-      "last_used": "Oct 2026",
-      "last_project": "",
-      "specialization": ""
-    },
-    {
-      "id": "sk_28",
-      "employee_id": "105518",
-      "skill_name": "Jenkins",
-      "category": "DevOps & Tools",
-      "proficiency": "Intermediate",
-      "experience_years": 2,
-      "last_used": "Sep 2026",
-      "last_project": "",
-      "specialization": ""
-    },
-    {
-      "id": "sk_29",
-      "employee_id": "105519",
-      "skill_name": "Python",
-      "category": "Backend",
-      "proficiency": "Advanced",
-      "experience_years": 4,
-      "last_used": "Oct 2026",
-      "last_project": "",
-      "specialization": ""
-    },
-    {
-      "id": "sk_30",
-      "employee_id": "105519",
-      "skill_name": "Apache Spark",
-      "category": "Data",
-      "proficiency": "Advanced",
-      "experience_years": 3,
-      "last_used": "Oct 2026",
-      "last_project": "",
-      "specialization": ""
-    },
-    {
-      "id": "sk_31",
-      "employee_id": "105519",
-      "skill_name": "AWS",
-      "category": "Cloud",
-      "proficiency": "Intermediate",
-      "experience_years": 2,
-      "last_used": "Oct 2026",
-      "last_project": "",
-      "specialization": ""
-    },
-    {
-      "id": "sk_32",
-      "employee_id": "105519",
-      "skill_name": "PostgreSQL",
-      "category": "Database",
-      "proficiency": "Advanced",
-      "experience_years": 4,
-      "last_used": "Oct 2026",
-      "last_project": "",
-      "specialization": ""
-    },
-    {
       "id": "sk_33",
       "employee_id": "105520",
       "skill_name": "AWS",
@@ -1134,6 +1120,50 @@
       "specialization": ""
     },
     {
+      "id": "sk_01",
+      "employee_id": "105512",
+      "skill_name": "Java",
+      "category": "Backend",
+      "proficiency": "Expert",
+      "experience_years": 15,
+      "last_used": "Oct 2026",
+      "last_project": "Policy Administration Suite",
+      "specialization": ""
+    },
+    {
+      "id": "sk_02",
+      "employee_id": "105512",
+      "skill_name": "AWS",
+      "category": "Cloud",
+      "proficiency": "Advanced",
+      "experience_years": 6,
+      "last_used": "Sep 2026",
+      "last_project": "Cloud Migration",
+      "specialization": ""
+    },
+    {
+      "id": "sk_04",
+      "employee_id": "105512",
+      "skill_name": "Oracle",
+      "category": "Database",
+      "proficiency": "Expert",
+      "experience_years": 12,
+      "last_used": "Oct 2026",
+      "last_project": "",
+      "specialization": ""
+    },
+    {
+      "id": "sk_03",
+      "employee_id": "105512",
+      "skill_name": "Angular",
+      "category": "Frontend",
+      "proficiency": "Advanced",
+      "experience_years": 5,
+      "last_used": "Aug 2026",
+      "last_project": "",
+      "specialization": ""
+    },
+    {
       "id": "skill_rboam7l",
       "employee_id": "105511",
       "skill_name": ".NET",
@@ -1178,46 +1208,79 @@
       "specialization": ""
     },
     {
-      "id": "sk_01",
-      "employee_id": "105512",
+      "id": "sk_26",
+      "employee_id": "105518",
       "skill_name": "Java",
       "category": "Backend",
-      "proficiency": "Expert",
-      "experience_years": 15,
-      "last_used": "Oct 2026",
-      "last_project": "Policy Administration Suite",
-      "specialization": ""
-    },
-    {
-      "id": "sk_02",
-      "employee_id": "105512",
-      "skill_name": "AWS",
-      "category": "Cloud",
-      "proficiency": "Advanced",
-      "experience_years": 6,
-      "last_used": "Sep 2026",
-      "last_project": "Cloud Migration",
-      "specialization": ""
-    },
-    {
-      "id": "sk_04",
-      "employee_id": "105512",
-      "skill_name": "Oracle",
-      "category": "Database",
-      "proficiency": "Expert",
-      "experience_years": 12,
+      "proficiency": "Intermediate",
+      "experience_years": 3,
       "last_used": "Oct 2026",
       "last_project": "",
       "specialization": ""
     },
     {
-      "id": "sk_03",
-      "employee_id": "105512",
-      "skill_name": "Angular",
-      "category": "Frontend",
+      "id": "sk_28",
+      "employee_id": "105518",
+      "skill_name": "Jenkins",
+      "category": "DevOps & Tools",
+      "proficiency": "Intermediate",
+      "experience_years": 2,
+      "last_used": "Sep 2026",
+      "last_project": "",
+      "specialization": ""
+    },
+    {
+      "id": "sk_27",
+      "employee_id": "105518",
+      "skill_name": "Selenium",
+      "category": "DevOps & Tools",
       "proficiency": "Advanced",
-      "experience_years": 5,
-      "last_used": "Aug 2026",
+      "experience_years": 4,
+      "last_used": "Oct 2026",
+      "last_project": "",
+      "specialization": ""
+    },
+    {
+      "id": "sk_29",
+      "employee_id": "105519",
+      "skill_name": "Python",
+      "category": "Backend",
+      "proficiency": "Advanced",
+      "experience_years": 4,
+      "last_used": "Oct 2026",
+      "last_project": "",
+      "specialization": ""
+    },
+    {
+      "id": "sk_31",
+      "employee_id": "105519",
+      "skill_name": "AWS",
+      "category": "Cloud",
+      "proficiency": "Intermediate",
+      "experience_years": 2,
+      "last_used": "Oct 2026",
+      "last_project": "",
+      "specialization": ""
+    },
+    {
+      "id": "sk_30",
+      "employee_id": "105519",
+      "skill_name": "Apache Spark",
+      "category": "Data",
+      "proficiency": "Advanced",
+      "experience_years": 3,
+      "last_used": "Oct 2026",
+      "last_project": "",
+      "specialization": ""
+    },
+    {
+      "id": "sk_32",
+      "employee_id": "105519",
+      "skill_name": "PostgreSQL",
+      "category": "Database",
+      "proficiency": "Advanced",
+      "experience_years": 4,
+      "last_used": "Oct 2026",
       "last_project": "",
       "specialization": ""
     }
@@ -1276,30 +1339,6 @@
       "role_name": "Delivery Manager"
     },
     {
-      "employee_id": "105518",
-      "role_name": "QA Engineer"
-    },
-    {
-      "employee_id": "105518",
-      "role_name": "SDET"
-    },
-    {
-      "employee_id": "105518",
-      "role_name": "Automation Tester"
-    },
-    {
-      "employee_id": "105519",
-      "role_name": "Data Engineer"
-    },
-    {
-      "employee_id": "105519",
-      "role_name": "ETL Developer"
-    },
-    {
-      "employee_id": "105519",
-      "role_name": "BI Developer"
-    },
-    {
       "employee_id": "105520",
       "role_name": "VP Engineering"
     },
@@ -1316,10 +1355,6 @@
       "role_name": "Frontend Developer"
     },
     {
-      "employee_id": "105511",
-      "role_name": "Data Engineer, ETL Developer, Analytics Engineer"
-    },
-    {
       "employee_id": "105512",
       "role_name": "Delivery Head"
     },
@@ -1330,6 +1365,34 @@
     {
       "employee_id": "105512",
       "role_name": "Solution Architect"
+    },
+    {
+      "employee_id": "105511",
+      "role_name": "Data Engineer, ETL Developer, Analytics Engineer"
+    },
+    {
+      "employee_id": "105518",
+      "role_name": "Automation Tester"
+    },
+    {
+      "employee_id": "105518",
+      "role_name": "QA Engineer"
+    },
+    {
+      "employee_id": "105518",
+      "role_name": "SDET"
+    },
+    {
+      "employee_id": "105519",
+      "role_name": "BI Developer"
+    },
+    {
+      "employee_id": "105519",
+      "role_name": "Data Engineer"
+    },
+    {
+      "employee_id": "105519",
+      "role_name": "ETL Developer"
     }
   ],
   "employee_immediate_technologies": [
@@ -1414,38 +1477,6 @@
       "technology_name": "SQL Server"
     },
     {
-      "employee_id": "105518",
-      "technology_name": "Java"
-    },
-    {
-      "employee_id": "105518",
-      "technology_name": "Selenium"
-    },
-    {
-      "employee_id": "105518",
-      "technology_name": "Jenkins"
-    },
-    {
-      "employee_id": "105518",
-      "technology_name": "TestNG"
-    },
-    {
-      "employee_id": "105519",
-      "technology_name": "Python"
-    },
-    {
-      "employee_id": "105519",
-      "technology_name": "Apache Spark"
-    },
-    {
-      "employee_id": "105519",
-      "technology_name": "AWS Glue"
-    },
-    {
-      "employee_id": "105519",
-      "technology_name": "PostgreSQL"
-    },
-    {
       "employee_id": "105520",
       "technology_name": "AWS"
     },
@@ -1474,18 +1505,6 @@
       "technology_name": "HTML/CSS"
     },
     {
-      "employee_id": "105511",
-      "technology_name": "node.js"
-    },
-    {
-      "employee_id": "105511",
-      "technology_name": "react"
-    },
-    {
-      "employee_id": "105511",
-      "technology_name": "sqlite"
-    },
-    {
       "employee_id": "105512",
       "technology_name": "AWS"
     },
@@ -1504,6 +1523,50 @@
     {
       "employee_id": "105512",
       "technology_name": "Spring Boot"
+    },
+    {
+      "employee_id": "105511",
+      "technology_name": "node.js"
+    },
+    {
+      "employee_id": "105511",
+      "technology_name": "react"
+    },
+    {
+      "employee_id": "105511",
+      "technology_name": "sqlite"
+    },
+    {
+      "employee_id": "105518",
+      "technology_name": "Java"
+    },
+    {
+      "employee_id": "105518",
+      "technology_name": "Jenkins"
+    },
+    {
+      "employee_id": "105518",
+      "technology_name": "Selenium"
+    },
+    {
+      "employee_id": "105518",
+      "technology_name": "TestNG"
+    },
+    {
+      "employee_id": "105519",
+      "technology_name": "AWS Glue"
+    },
+    {
+      "employee_id": "105519",
+      "technology_name": "Apache Spark"
+    },
+    {
+      "employee_id": "105519",
+      "technology_name": "PostgreSQL"
+    },
+    {
+      "employee_id": "105519",
+      "technology_name": "Python"
     }
   ],
   "employee_learning_technologies": [
@@ -1548,22 +1611,6 @@
       "technology_name": "GenAI"
     },
     {
-      "employee_id": "105518",
-      "technology_name": "Cypress"
-    },
-    {
-      "employee_id": "105518",
-      "technology_name": "Playwright"
-    },
-    {
-      "employee_id": "105519",
-      "technology_name": "Databricks"
-    },
-    {
-      "employee_id": "105519",
-      "technology_name": "dbt"
-    },
-    {
       "employee_id": "105520",
       "technology_name": "GenAI"
     },
@@ -1584,6 +1631,14 @@
       "technology_name": "AWS"
     },
     {
+      "employee_id": "105512",
+      "technology_name": "Kubernetes"
+    },
+    {
+      "employee_id": "105512",
+      "technology_name": "Terraform"
+    },
+    {
       "employee_id": "105511",
       "technology_name": "aws"
     },
@@ -1592,12 +1647,20 @@
       "technology_name": "python"
     },
     {
-      "employee_id": "105512",
-      "technology_name": "Kubernetes"
+      "employee_id": "105518",
+      "technology_name": "Cypress"
     },
     {
-      "employee_id": "105512",
-      "technology_name": "Terraform"
+      "employee_id": "105518",
+      "technology_name": "Playwright"
+    },
+    {
+      "employee_id": "105519",
+      "technology_name": "Databricks"
+    },
+    {
+      "employee_id": "105519",
+      "technology_name": "dbt"
     }
   ],
   "employee_domain_expertise": [
@@ -1679,28 +1742,6 @@
       "specialization": ""
     },
     {
-      "id": "de_10",
-      "employee_id": "105518",
-      "domain": "Insurance",
-      "custom_domain": "",
-      "experience_years": 3,
-      "proficiency": "Intermediate",
-      "last_used": "Oct 2026",
-      "last_project": "Automated Testing Framework",
-      "specialization": "Claims Testing & Validation"
-    },
-    {
-      "id": "de_11",
-      "employee_id": "105519",
-      "domain": "Data Engineering",
-      "custom_domain": "",
-      "experience_years": 4,
-      "proficiency": "Advanced",
-      "last_used": "Oct 2026",
-      "last_project": "Data Lake Migration",
-      "specialization": "Data Pipeline Orchestration"
-    },
-    {
       "id": "de_12",
       "employee_id": "105520",
       "domain": "Insurance",
@@ -1723,17 +1764,6 @@
       "specialization": ""
     },
     {
-      "id": "de_7uqadq",
-      "employee_id": "105511",
-      "domain": "Data Engineering",
-      "custom_domain": "",
-      "experience_years": 2,
-      "proficiency": "Intermediate",
-      "last_used": "Oct 2025",
-      "last_project": "Employee Skills Dashboard",
-      "specialization": "ETL Pipelines, Data Transformation, SQL, Data Modeling"
-    },
-    {
       "id": "de_01",
       "employee_id": "105512",
       "domain": "Insurance",
@@ -1754,8 +1784,42 @@
       "last_used": "Mar 2024",
       "last_project": "Core Banking Modernization",
       "specialization": ""
+    },
+    {
+      "id": "de_7uqadq",
+      "employee_id": "105511",
+      "domain": "Data Engineering",
+      "custom_domain": "",
+      "experience_years": 2,
+      "proficiency": "Intermediate",
+      "last_used": "Oct 2025",
+      "last_project": "Employee Skills Dashboard",
+      "specialization": "ETL Pipelines, Data Transformation, SQL, Data Modeling"
+    },
+    {
+      "id": "de_10",
+      "employee_id": "105518",
+      "domain": "Insurance",
+      "custom_domain": "",
+      "experience_years": 3,
+      "proficiency": "Intermediate",
+      "last_used": "Oct 2026",
+      "last_project": "Automated Testing Framework",
+      "specialization": "Claims Testing & Validation"
+    },
+    {
+      "id": "de_11",
+      "employee_id": "105519",
+      "domain": "Data Engineering",
+      "custom_domain": "",
+      "experience_years": 4,
+      "proficiency": "Advanced",
+      "last_used": "Oct 2026",
+      "last_project": "Data Lake Migration",
+      "specialization": "Data Pipeline Orchestration"
     }
   ],
+  "employee_custom_field_values": [],
   "users": [
     {
       "id": "USR_MVB9J6E3TPGI",

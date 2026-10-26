@@ -12,6 +12,7 @@ import { Employee } from '../types/employee';
 import { api, AnalyticsResponse, SkillCoverageItem } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { PageHeader } from '../components/layout/PageHeader';
+import { SkillIcon } from '../components/common/SkillIcon';
 
 interface SkillCoveragePageProps {
   employees: Employee[];
@@ -71,13 +72,14 @@ function getCategoryAccentColor(label: string): string {
 export const SkillCoveragePage: React.FC<SkillCoveragePageProps> = ({
   employees,
   analytics: initialAnalytics,
-  onNavigateHome,
+  onNavigateHome: _onNavigateHome,
   onNavigateToSkills: _onNavigateToSkills,
   onViewEmployee,
 }) => {
   const { toast } = useToast();
   const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(initialAnalytics || null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSkillFilter, setSelectedSkillFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const hasPermission = true;
 
@@ -88,41 +90,134 @@ export const SkillCoveragePage: React.FC<SkillCoveragePageProps> = ({
       .catch((err) => console.warn('Could not fetch analytics for SkillCoveragePage:', err));
   }, [employees]);
 
+  // Total workforce employee count
+  const totalEmployees = analytics ? analytics.totalEmployees : employees.length;
+
+  // Helper to compute child skills for any category (Master-Child relationship)
+  const getChildSkillsForCategory = useMemo(() => {
+    return (catLabel: string): Array<{ name: string; count: number; category: string }> => {
+      const cat = catLabel.toLowerCase().trim();
+      const skillCountMap = new Map<string, { count: number; category: string; originalName: string }>();
+
+      employees.forEach((emp) => {
+        if (cat === 'domain') {
+          const empDomains = new Set<string>();
+          emp.domainExpertise?.forEach((d) => {
+            const rawName = d.domain === 'Others' ? (d.customDomain || 'Others').trim() : (d.domain || '').trim();
+            if (rawName) {
+              const lower = rawName.toLowerCase();
+              if (!empDomains.has(lower)) {
+                empDomains.add(lower);
+                const cur = skillCountMap.get(lower);
+                if (cur) {
+                  cur.count += 1;
+                } else {
+                  skillCountMap.set(lower, { count: 1, category: 'Domain', originalName: rawName });
+                }
+              }
+            }
+          });
+        } else {
+          const empSkills = new Set<string>();
+          emp.technicalSkills?.forEach((s) => {
+            if (s.category?.toLowerCase().trim() === cat && s.name?.trim()) {
+              const rawName = s.name.trim();
+              const lower = rawName.toLowerCase();
+              if (!empSkills.has(lower)) {
+                empSkills.add(lower);
+                const cur = skillCountMap.get(lower);
+                if (cur) {
+                  cur.count += 1;
+                } else {
+                  skillCountMap.set(lower, { count: 1, category: s.category || catLabel, originalName: rawName });
+                }
+              }
+            }
+          });
+        }
+      });
+
+      return Array.from(skillCountMap.values())
+        .map((data) => ({
+          name: data.originalName,
+          count: data.count,
+          category: data.category,
+        }))
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    };
+  }, [employees]);
+
+  // Master Categories: merges standard categories, analytics categories & dynamic categories from employees
   const coverageItems: SkillCoverageItem[] = useMemo(() => {
+    const total = totalEmployees || employees.length;
+
+    // Default base category order
+    const categoryLabels: string[] = [
+      'Frontend',
+      'Backend',
+      'Database',
+      'Cloud',
+      'Data',
+      'DevOps & Tools',
+      'Domain',
+    ];
+
+    // Merge categories from analytics if provided
     if (analytics?.skillCoverage && analytics.skillCoverage.length > 0) {
-      return analytics.skillCoverage;
+      analytics.skillCoverage.forEach((item) => {
+        if (!categoryLabels.some((c) => c.toLowerCase() === item.label.toLowerCase())) {
+          categoryLabels.push(item.label);
+        }
+      });
     }
-    // Client-side fallback calculation if analytics endpoint is loading
-    const total = employees.length;
-    const categories = ['Frontend', 'Backend', 'Database', 'Cloud', 'Data', 'DevOps & Tools', 'Domain'];
-    return categories.map((cat) => {
+
+    // Also dynamically discover any custom categories from employee skills
+    employees.forEach((emp) => {
+      emp.technicalSkills?.forEach((s) => {
+        if (s.category?.trim()) {
+          const cat = s.category.trim();
+          if (!categoryLabels.some((c) => c.toLowerCase() === cat.toLowerCase())) {
+            categoryLabels.push(cat);
+          }
+        }
+      });
+    });
+
+    return categoryLabels.map((catLabel) => {
       let count = 0;
-      if (cat.toLowerCase() === 'domain') {
+      if (catLabel.toLowerCase() === 'domain') {
         count = employees.filter((e) => e.domainExpertise && e.domainExpertise.length > 0).length;
       } else {
         count = employees.filter((e) =>
-          e.technicalSkills && e.technicalSkills.some((s) => s.category.toLowerCase() === cat.toLowerCase())
+          e.technicalSkills && e.technicalSkills.some((s) => s.category?.toLowerCase() === catLabel.toLowerCase())
         ).length;
       }
+
+      const existingFromAnalytics = analytics?.skillCoverage?.find(
+        (i) => i.label.toLowerCase() === catLabel.toLowerCase()
+      );
+
       return {
-        label: cat,
+        label: existingFromAnalytics?.label || catLabel,
         count,
         percentage: total > 0 ? Math.round((count / total) * 100) : 0,
-        barColor: '#1265FF',
+        barColor: existingFromAnalytics?.barColor || '#1265FF',
       };
     });
-  }, [analytics, employees]);
+  }, [analytics, employees, totalEmployees]);
 
-  const totalEmployees = analytics ? analytics.totalEmployees : employees.length;
-
-  // Filtered categories based on search
+  // Filtered categories based on search query (matches category label OR child skill names)
   const filteredCategories = useMemo(() => {
     if (!searchQuery.trim()) return coverageItems;
-    const q = searchQuery.toLowerCase();
-    return coverageItems.filter((c) => c.label.toLowerCase().includes(q));
-  }, [coverageItems, searchQuery]);
+    const q = searchQuery.toLowerCase().trim();
+    return coverageItems.filter((c) => {
+      if (c.label.toLowerCase().includes(q)) return true;
+      const childSkills = getChildSkillsForCategory(c.label);
+      return childSkills.some((s) => s.name.toLowerCase().includes(q));
+    });
+  }, [coverageItems, searchQuery, getChildSkillsForCategory]);
 
-  // Find employees that belong to the selected category
+  // Find employees that belong to the selected category (Master)
   const selectedCategoryEmployees = useMemo(() => {
     if (!selectedCategory) return [];
     const cat = selectedCategory.toLowerCase();
@@ -130,9 +225,20 @@ export const SkillCoveragePage: React.FC<SkillCoveragePageProps> = ({
       return employees.filter((e) => e.domainExpertise && e.domainExpertise.length > 0);
     }
     return employees.filter((e) =>
-      e.technicalSkills && e.technicalSkills.some((s) => s.category.toLowerCase() === cat)
+      e.technicalSkills && e.technicalSkills.some((s) => s.category?.toLowerCase() === cat)
     );
   }, [selectedCategory, employees]);
+
+  // Handle category accordion toggle
+  const handleToggleCategory = (catLabel: string) => {
+    if (selectedCategory === catLabel) {
+      setSelectedCategory(null);
+      setSelectedSkillFilter(null);
+    } else {
+      setSelectedCategory(catLabel);
+      setSelectedSkillFilter(null);
+    }
+  };
 
   // RBAC Access Restricted State
   if (!hasPermission) {
@@ -175,7 +281,7 @@ export const SkillCoveragePage: React.FC<SkillCoveragePageProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter categories..."
+              placeholder="Filter categories or skills..."
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-[#0B1B4D] placeholder-[#94A3B8] focus:outline-none focus:border-[#1265FF] transition-all"
             />
           </div>
@@ -229,11 +335,11 @@ export const SkillCoveragePage: React.FC<SkillCoveragePageProps> = ({
                       tabIndex={0}
                       aria-expanded={isSelected}
                       aria-label={`${item.label} capability: ${item.count} of ${totalEmployees} employees, ${item.percentage}% coverage`}
-                      onClick={() => setSelectedCategory(isSelected ? null : item.label)}
+                      onClick={() => handleToggleCategory(item.label)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          setSelectedCategory(isSelected ? null : item.label);
+                          handleToggleCategory(item.label);
                         }
                       }}
                       className={`p-4 md:px-6 md:py-4 transition-all cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1265FF] focus-visible:ring-inset ${
@@ -349,64 +455,222 @@ export const SkillCoveragePage: React.FC<SkillCoveragePageProps> = ({
                       </div>
                     </div>
 
-                  {/* Expanded Drilldown Roster for Category */}
-                  <AnimatePresence>
-                    {isSelected && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.25 }}
-                        className="bg-[#F8FAFC] border-t border-[#DFE5EE] px-5 py-4 md:px-6 md:py-5 overflow-hidden"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider flex items-center gap-2">
-                            <span>Employees with {item.label} capability ({selectedCategoryEmployees.length})</span>
-                          </div>
-                          <span className="text-[11px] text-slate-500">
-                            Click employee to inspect full verified profile
-                          </span>
-                        </div>
+                    {/* Expanded Drilldown Roster for Category (Master-Child Drilldown) */}
+                    <AnimatePresence>
+                      {isSelected && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.25 }}
+                          className="bg-[#F8FAFC] border-t border-[#DFE5EE] px-5 py-4 md:px-6 md:py-5 overflow-hidden"
+                        >
+                          {(() => {
+                            const childSkills = getChildSkillsForCategory(item.label);
+                            const isDomain = item.label.toLowerCase() === 'domain';
+                            const filterTarget = selectedSkillFilter?.toLowerCase().trim();
 
-                        {selectedCategoryEmployees.length === 0 ? (
-                          <div className="text-xs text-[#64748B] py-3 text-center">
-                            No employees have verified skills registered under this vertical yet.
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                            {selectedCategoryEmployees.map((emp) => (
-                              <div
-                                key={emp.id}
-                                onClick={() => onViewEmployee && onViewEmployee(emp)}
-                                className="p-3 rounded-xl bg-white border border-[#E3EAF5] hover:border-blue-300 hover:shadow-xs transition-all cursor-pointer flex items-center justify-between gap-3 group"
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className="w-8 h-8 rounded-full bg-blue-100 text-[#1265FF] font-bold text-xs flex items-center justify-center shrink-0">
-                                    {emp.name.split(' ').map((n) => n[0]).join('').substring(0, 2)}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="text-xs font-bold text-[#0B1B4D] group-hover:text-[#1265FF] truncate transition-colors">
-                                      {emp.name}
+                            const displayedEmployees = !filterTarget
+                              ? selectedCategoryEmployees
+                              : selectedCategoryEmployees.filter((e) => {
+                                  if (isDomain) {
+                                    return e.domainExpertise?.some((d) => {
+                                      const dName = d.domain === 'Others' ? (d.customDomain || 'Others').trim() : (d.domain || '').trim();
+                                      return dName.toLowerCase() === filterTarget;
+                                    });
+                                  }
+                                  return e.technicalSkills?.some((s) =>
+                                    s.category?.toLowerCase() === item.label.toLowerCase() &&
+                                    s.name?.trim().toLowerCase() === filterTarget
+                                  );
+                                });
+
+                            return (
+                              <div className="space-y-4">
+                                {/* Header & Dynamic Language / Skill Selector */}
+                                <div className="space-y-3">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider flex items-center gap-2 flex-wrap">
+                                      <span>
+                                        Employees with {item.label} capability ({selectedCategoryEmployees.length})
+                                      </span>
+                                      {selectedSkillFilter && (
+                                        <span className="text-[#1265FF] font-bold normal-case text-xs bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
+                                          <span>Filtered by:</span>
+                                          <strong>{selectedSkillFilter}</strong>
+                                          <span className="text-[#64748B]">({displayedEmployees.length})</span>
+                                        </span>
+                                      )}
                                     </div>
-                                    <div className="text-[11px] text-[#64748B] truncate">
-                                      {emp.designation} • {emp.businessUnit}
-                                    </div>
+                                    <span className="text-[11px] text-slate-500">
+                                      Click employee to inspect full verified profile
+                                    </span>
                                   </div>
+
+                                  {/* Dynamic Language / Skill Pills (Master-Child Relationship) */}
+                                  {childSkills.length > 0 && (
+                                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none pt-0.5">
+                                      <span className="text-[11px] font-bold text-[#64748B] shrink-0 uppercase tracking-wider">
+                                        Skills / Tech:
+                                      </span>
+
+                                      {/* All button */}
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedSkillFilter(null)}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
+                                          selectedSkillFilter === null
+                                            ? 'bg-[#1265FF] text-white shadow-xs'
+                                            : 'bg-white border border-[#DFE5EE] text-[#64748B] hover:text-[#0B1B4D] hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        <span>All</span>
+                                        <span
+                                          className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
+                                            selectedSkillFilter === null
+                                              ? 'bg-white/20 text-white'
+                                              : 'bg-slate-100 text-slate-600'
+                                          }`}
+                                        >
+                                          {selectedCategoryEmployees.length}
+                                        </span>
+                                      </button>
+
+                                      {/* Child Skill / Technology Buttons */}
+                                      {childSkills.map((sk) => {
+                                        const isChildActive = selectedSkillFilter?.toLowerCase() === sk.name.toLowerCase();
+                                        return (
+                                          <button
+                                            key={sk.name}
+                                            type="button"
+                                            onClick={() =>
+                                              setSelectedSkillFilter(isChildActive ? null : sk.name)
+                                            }
+                                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
+                                              isChildActive
+                                                ? 'bg-[#1265FF] text-white shadow-xs ring-2 ring-blue-300'
+                                                : 'bg-white border border-[#DFE5EE] text-[#334155] hover:text-[#0B1B4D] hover:border-blue-300 hover:bg-blue-50/40'
+                                            }`}
+                                            title={`Filter employees with ${sk.name} (${sk.count})`}
+                                          >
+                                            <SkillIcon name={sk.name} category={sk.category} size="xs" />
+                                            <span>{sk.name}</span>
+                                            <span
+                                              className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
+                                                isChildActive
+                                                  ? 'bg-white/20 text-white'
+                                                  : 'bg-slate-100 text-slate-600'
+                                              }`}
+                                            >
+                                              {sk.count}
+                                            </span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
                                 </div>
-                                <UserCheck className="w-4 h-4 text-emerald-500 shrink-0 opacity-70 group-hover:opacity-100" />
+
+                                {/* Employee Cards Grid */}
+                                {displayedEmployees.length === 0 ? (
+                                  <div className="text-xs text-[#64748B] py-8 text-center bg-white rounded-xl border border-dashed border-[#DFE5EE]">
+                                    {selectedSkillFilter
+                                      ? `No employees have recorded skill "${selectedSkillFilter}" under ${item.label}.`
+                                      : `No employees have verified skills registered under this vertical yet.`}
+                                  </div>
+                                ) : (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                    {displayedEmployees.map((emp) => {
+                                      const empSkillsInCategory = isDomain
+                                        ? (emp.domainExpertise || []).map((d) => ({
+                                            name: d.domain === 'Others' ? (d.customDomain || 'Others').trim() : (d.domain || '').trim(),
+                                            proficiency: d.proficiency,
+                                            experienceYears: d.experienceYears,
+                                          }))
+                                        : (emp.technicalSkills || [])
+                                            .filter((s) => s.category?.toLowerCase() === item.label.toLowerCase())
+                                            .map((s) => ({
+                                              name: s.name.trim(),
+                                              proficiency: s.proficiency,
+                                              experienceYears: s.experienceYears,
+                                            }));
+
+                                      const activeSkill = filterTarget
+                                        ? empSkillsInCategory.find((s) => s.name.toLowerCase() === filterTarget)
+                                        : null;
+
+                                      return (
+                                        <div
+                                          key={emp.id}
+                                          onClick={() => onViewEmployee && onViewEmployee(emp)}
+                                          className="p-3.5 rounded-xl bg-white border border-[#E3EAF5] hover:border-blue-300 hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between gap-2.5 group"
+                                        >
+                                          <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                              <div className="w-8 h-8 rounded-full bg-blue-100 text-[#1265FF] font-bold text-xs flex items-center justify-center shrink-0">
+                                                {emp.name.split(' ').map((n) => n[0]).join('').substring(0, 2)}
+                                              </div>
+                                              <div className="min-w-0">
+                                                <div className="text-xs font-bold text-[#0B1B4D] group-hover:text-[#1265FF] truncate transition-colors">
+                                                  {emp.name}
+                                                </div>
+                                                <div className="text-[11px] text-[#64748B] truncate">
+                                                  {emp.designation} • {emp.businessUnit}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <UserCheck className="w-4 h-4 text-emerald-500 shrink-0 opacity-70 group-hover:opacity-100 mt-0.5" />
+                                          </div>
+
+                                          {/* Skill Tag: Highlights filtered skill OR shows skills in this category */}
+                                          {activeSkill ? (
+                                            <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5 flex-wrap">
+                                              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                                                <SkillIcon name={activeSkill.name} category={item.label} size="xs" />
+                                                <span>{activeSkill.name}</span>
+                                                <span>•</span>
+                                                <span>{activeSkill.proficiency}</span>
+                                                {activeSkill.experienceYears ? (
+                                                  <span>({activeSkill.experienceYears}y exp)</span>
+                                                ) : null}
+                                              </span>
+                                            </div>
+                                          ) : empSkillsInCategory.length > 0 ? (
+                                            <div className="pt-2 border-t border-slate-100 flex items-center gap-1 flex-wrap">
+                                              {empSkillsInCategory.slice(0, 3).map((sk) => (
+                                                <span
+                                                  key={sk.name}
+                                                  className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#EFF6FF] text-[#1E40AF] border border-blue-100"
+                                                  title={`${sk.name} • ${sk.proficiency}${sk.experienceYears ? ` (${sk.experienceYears}y exp)` : ''}`}
+                                                >
+                                                  <SkillIcon name={sk.name} category={item.label} size="xs" />
+                                                  <span className="truncate max-w-[85px]">{sk.name}</span>
+                                                </span>
+                                              ))}
+                                              {empSkillsInCategory.length > 3 && (
+                                                <span className="text-[10px] text-slate-400 font-semibold px-1">
+                                                  +{empSkillsInCategory.length - 3}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ) : null}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              );
-            })}
+                            );
+                          })()}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );

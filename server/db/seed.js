@@ -87,7 +87,6 @@ export function importSeedData() {
       { key: 'business_units', cols: ['id', 'name'] },
       { key: 'locations', cols: ['id', 'name'] },
       { key: 'designations', cols: ['id', 'name', 'grade_level'] },
-      { key: 'owlsure_designations', cols: ['id', 'name'] },
       { key: 'current_roles', cols: ['id', 'name'] },
       { key: 'deployable_roles', cols: ['id', 'name'] },
       { key: 'projects', cols: ['id', 'name'] },
@@ -110,9 +109,9 @@ export function importSeedData() {
 
     if (data.employees) {
       const stmt = db.prepare(`INSERT OR IGNORE INTO employees
-        (id, name, email, designation, business_unit, reporting_manager, reporting_manager_email, current_project, current_customer, location, total_experience, current_role, owlsure_designation, profile_completion, status, avatar_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-      for (const r of data.employees) stmt.run(r.id, r.name, r.email, r.designation, r.business_unit, r.reporting_manager, r.reporting_manager_email, r.current_project, r.current_customer, r.location, r.total_experience, r.current_role, r.owlsure_designation, r.profile_completion, r.status, r.avatar_color);
+        (id, name, email, designation, business_unit, reporting_manager, reporting_manager_email, current_project, current_customer, location, total_experience, current_role, profile_completion, status, avatar_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      for (const r of data.employees) stmt.run(r.id, r.name, r.email, r.designation, r.business_unit, r.reporting_manager, r.reporting_manager_email, r.current_project, r.current_customer, r.location, r.total_experience, r.current_role, r.profile_completion, r.status, r.avatar_color);
     }
 
     if (data.employee_skills) {
@@ -173,7 +172,6 @@ export function resetDatabase() {
     db.exec('DELETE FROM business_units');
     db.exec('DELETE FROM locations');
     db.exec('DELETE FROM designations');
-    db.exec('DELETE FROM owlsure_designations');
     db.exec('DELETE FROM current_roles');
     db.exec('DELETE FROM deployable_roles');
     db.exec('DELETE FROM projects');

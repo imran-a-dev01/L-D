@@ -349,14 +349,14 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
       scopeSlug = 'selected_batch';
     }
 
-    const filename = `nexus_${scopeSlug}_${timestamp}.${format}`;
+    const filename = `owlsure_${scopeSlug}_${timestamp}.${format}`;
 
     setIsExporting(true);
     try {
       if (format === 'xlsx') {
         await employeeService.exportXlsx(targetEmployees, filename);
       } else if (format === 'csv') {
-        employeeService.exportCsv(targetEmployees, filename);
+        await employeeService.exportCsv(targetEmployees, filename);
       } else {
         employeeService.exportJson(targetEmployees, filename);
       }

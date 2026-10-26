@@ -41,6 +41,13 @@ function hydrateEmployee(empRow) {
     WHERE employee_id = ?
   `).all(empRow.id);
 
+  // Fetch custom field values
+  const customFieldValues = db.prepare(
+    'SELECT field_id, value FROM employee_custom_field_values WHERE employee_id = ?'
+  ).all(empRow.id);
+  const customData = {};
+  for (const cv of customFieldValues) customData[cv.field_id] = cv.value;
+
   return {
     id: empRow.id,
     name: empRow.name || '',
@@ -54,7 +61,6 @@ function hydrateEmployee(empRow) {
     location: empRow.location || '',
     totalExperience: Number(empRow.total_experience) || 0,
     currentRole: empRow.current_role || '',
-    owlSureDesignation: empRow.owlsure_designation || '',
     profileCompletion: Number(empRow.profile_completion) || 0,
     status: empRow.status || '',
     avatarColor: empRow.avatar_color || 'bg-blue-100 text-[#1265FF]',
@@ -82,13 +88,17 @@ function hydrateEmployee(empRow) {
       lastProject: d.lastProject || '',
       specialization: d.specialization || ''
     })),
+    customData,
   };
 }
 
-// Calculate profile completion percentage accurately
-function calculateCompletion(emp) {
+// Calculate profile completion percentage — includes required custom fields dynamically
+function calculateCompletion(emp, customData = {}) {
+  const requiredCustomFields = db.prepare('SELECT id FROM custom_fields WHERE is_required = 1').all();
+
   let score = 0;
-  const max = 10;
+  let max = 10 + requiredCustomFields.length;
+
   if (emp.id && emp.name) score += 2;
   if (emp.email) score += 1;
   if (emp.designation) score += 1;
@@ -99,7 +109,45 @@ function calculateCompletion(emp) {
   if (emp.deployableRoles && emp.deployableRoles.length > 0) score += 1;
   if (emp.technicalSkills && emp.technicalSkills.length > 0) score += 1;
 
+  for (const f of requiredCustomFields) {
+    if (customData[f.id] && String(customData[f.id]).trim()) score += 1;
+  }
+
   return Math.min(100, Math.round((score / max) * 100));
+}
+
+// Recalculate profile completion for ALL employees (call after master data changes)
+export function recalculateAllCompletion() {
+  const employees = db.prepare('SELECT * FROM employees').all();
+  const requiredCustomFields = db.prepare('SELECT id FROM custom_fields WHERE is_required = 1').all();
+  const updateStmt = db.prepare('UPDATE employees SET profile_completion = ?, status = ? WHERE id = ?');
+
+  for (const e of employees) {
+    const cfvs = db.prepare('SELECT field_id, value FROM employee_custom_field_values WHERE employee_id = ?').all(e.id);
+    const customData = {};
+    for (const cv of cfvs) customData[cv.field_id] = cv.value;
+
+    let score = 0;
+    let max = 10 + requiredCustomFields.length;
+
+    if (e.id && e.name) score += 2;
+    if (e.email) score += 1;
+    if (e.designation) score += 1;
+    if (e.business_unit) score += 1;
+    if (e.reporting_manager) score += 1;
+    if (e.current_project) score += 1;
+    if (e.location) score += 1;
+    if (db.prepare('SELECT 1 FROM employee_deployable_roles WHERE employee_id = ? LIMIT 1').get(e.id)) score += 1;
+    if (db.prepare('SELECT 1 FROM employee_skills WHERE employee_id = ? LIMIT 1').get(e.id)) score += 1;
+
+    for (const f of requiredCustomFields) {
+      if (customData[f.id] && String(customData[f.id]).trim()) score += 1;
+    }
+
+    const completion = Math.min(100, Math.round((score / max) * 100));
+    const status = completion >= 85 ? 'Complete' : (completion >= 65 ? 'In Progress' : 'Needs Review');
+    updateStmt.run(completion, status, e.id);
+  }
 }
 
 // Automatically save custom user-entered fields into SQLite master lookup tables
@@ -116,9 +164,6 @@ function autoRecordMasterLookups(emp) {
   if (emp.currentRole && emp.currentRole.trim() && emp.currentRole !== '__OTHER__' && emp.currentRole.toLowerCase() !== 'other') {
     db.prepare('INSERT OR IGNORE INTO current_roles (name) VALUES (?)').run(emp.currentRole.trim());
   }
-  if (emp.owlSureDesignation && emp.owlSureDesignation.trim() && emp.owlSureDesignation !== '__OTHER__' && emp.owlSureDesignation.toLowerCase() !== 'other') {
-    db.prepare('INSERT OR IGNORE INTO owlsure_designations (name) VALUES (?)').run(emp.owlSureDesignation.trim());
-  }
   let managerName = (emp.reportingManager || '').trim();
   let managerEmail = (emp.reportingManagerEmail || '').trim();
   const mgrMatch = managerName.match(/^(.+?)\s*\((.+?@.+?)\)$/);
@@ -129,7 +174,14 @@ function autoRecordMasterLookups(emp) {
     }
   }
   if (managerName && managerName !== '__OTHER__' && managerName.toLowerCase() !== 'other') {
-    db.prepare('INSERT OR IGNORE INTO managers (name, email) VALUES (?, ?)').run(managerName, managerEmail);
+    const existingMgr = db.prepare('SELECT id, email FROM managers WHERE LOWER(TRIM(name)) = LOWER(?)').get(managerName);
+    if (existingMgr) {
+      if (managerEmail && !existingMgr.email) {
+        db.prepare('UPDATE managers SET email = ? WHERE id = ?').run(managerEmail, existingMgr.id);
+      }
+    } else {
+      db.prepare('INSERT INTO managers (name, email) VALUES (?, ?)').run(managerName, managerEmail);
+    }
   }
   if (emp.currentProject && emp.currentProject.trim() && emp.currentProject !== '__OTHER__' && emp.currentProject.toLowerCase() !== 'other') {
     db.prepare('INSERT OR IGNORE INTO projects (name) VALUES (?)').run(emp.currentProject.trim());
@@ -296,7 +348,7 @@ router.post('/', authenticateToken, requirePermission('employee:create'), (req, 
     return res.status(409).json({ error: 'Another employee with this email already exists' });
   }
 
-  const completion = calculateCompletion(emp);
+  const completion = calculateCompletion(emp, emp.customData || {});
   const computedStatus = completion >= 85 ? 'Complete' : (completion >= 65 ? 'In Progress' : 'Needs Review');
   const updatedAt = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -318,9 +370,9 @@ router.post('/', authenticateToken, requirePermission('employee:create'), (req, 
       INSERT INTO employees (
         id, name, email, designation, business_unit, reporting_manager, reporting_manager_email,
         current_project, current_customer, location, total_experience,
-        current_role, owlsure_designation, profile_completion, status,
+        current_role, profile_completion, status,
         avatar_color, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       normalizedId,
       emp.name.trim(),
@@ -334,7 +386,6 @@ router.post('/', authenticateToken, requirePermission('employee:create'), (req, 
       (emp.location || '').trim(),
       Number(emp.totalExperience) || 0.0,
       (emp.currentRole || '').trim(),
-      (emp.owlSureDesignation || '').trim(),
       completion,
       computedStatus,
       emp.avatarColor || 'bg-blue-100 text-[#1265FF]',
@@ -411,6 +462,16 @@ router.post('/', authenticateToken, requirePermission('employee:create'), (req, 
         }
       });
     }
+
+    // 7. Custom field values
+    if (emp.customData && typeof emp.customData === 'object') {
+      const insertCustom = db.prepare('INSERT OR REPLACE INTO employee_custom_field_values (employee_id, field_id, value) VALUES (?, ?, ?)');
+      for (const [fieldId, value] of Object.entries(emp.customData)) {
+        if (value && String(value).trim()) {
+          insertCustom.run(normalizedId, Number(fieldId), String(value).trim());
+        }
+      }
+    }
   });
 
   try {
@@ -454,7 +515,7 @@ router.put('/:id', authenticateToken, requirePermission('employee:update'), (req
     return res.status(409).json({ error: 'Another employee with this email already exists' });
   }
 
-  const completion = calculateCompletion(emp);
+  const completion = calculateCompletion(emp, emp.customData || {});
   const computedStatus = completion >= 85 ? 'Complete' : (completion >= 65 ? 'In Progress' : 'Needs Review');
   const updatedAt = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -476,7 +537,7 @@ router.put('/:id', authenticateToken, requirePermission('employee:update'), (req
       UPDATE employees SET
         name = ?, email = ?, designation = ?, business_unit = ?, reporting_manager = ?, reporting_manager_email = ?,
         current_project = ?, current_customer = ?, location = ?, total_experience = ?,
-        current_role = ?, owlsure_designation = ?, profile_completion = ?, status = ?,
+        current_role = ?, profile_completion = ?, status = ?,
         avatar_color = ?, updated_at = ?
       WHERE id = ?
     `).run(
@@ -491,7 +552,6 @@ router.put('/:id', authenticateToken, requirePermission('employee:update'), (req
       (emp.location || '').trim(),
       Number(emp.totalExperience) || 0.0,
       (emp.currentRole || '').trim(),
-      (emp.owlSureDesignation || '').trim(),
       completion,
       computedStatus,
       emp.avatarColor || existing.avatar_color || 'bg-blue-100 text-[#1265FF]',
@@ -573,6 +633,17 @@ router.put('/:id', authenticateToken, requirePermission('employee:update'), (req
           );
         }
       });
+    }
+
+    // 7. Refresh custom field values
+    db.prepare('DELETE FROM employee_custom_field_values WHERE employee_id = ?').run(storedId);
+    if (emp.customData && typeof emp.customData === 'object') {
+      const insertCustom = db.prepare('INSERT OR REPLACE INTO employee_custom_field_values (employee_id, field_id, value) VALUES (?, ?, ?)');
+      for (const [fieldId, value] of Object.entries(emp.customData)) {
+        if (value && String(value).trim()) {
+          insertCustom.run(storedId, Number(fieldId), String(value).trim());
+        }
+      }
     }
   });
 

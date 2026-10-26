@@ -178,6 +178,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 
   const handleSelect = (optValue: string) => {
     clearTimeout(blurTimeoutRef.current);
+    skipBlurFinalizeRef.current = true;
     onChange(optValue);
     syncInputText('');
     setIsOpen(false);

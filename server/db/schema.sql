@@ -70,11 +70,6 @@ CREATE TABLE IF NOT EXISTS designations (
     grade_level INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS owlsure_designations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE
-);
-
 CREATE TABLE IF NOT EXISTS current_roles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE
@@ -126,6 +121,52 @@ CREATE TABLE IF NOT EXISTS profile_statuses (
 );
 
 -- ============================================================================
+-- 2b. CUSTOM MASTER DATA FIELDS & OPTIONS
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS master_data_overrides (
+    item_key TEXT PRIMARY KEY,
+    custom_label TEXT,
+    is_hidden INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS custom_sections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL UNIQUE,
+    after_key TEXT NOT NULL DEFAULT 'review',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS custom_fields (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    section TEXT NOT NULL,
+    label TEXT NOT NULL,
+    field_type TEXT NOT NULL DEFAULT 'dropdown',
+    is_required INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(section, label)
+);
+
+CREATE TABLE IF NOT EXISTS custom_field_options (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    field_id INTEGER NOT NULL,
+    value TEXT NOT NULL,
+    sort_order INTEGER DEFAULT 0,
+    FOREIGN KEY (field_id) REFERENCES custom_fields(id) ON DELETE CASCADE,
+    UNIQUE(field_id, value)
+);
+
+CREATE TABLE IF NOT EXISTS employee_custom_field_values (
+    employee_id TEXT NOT NULL,
+    field_id INTEGER NOT NULL,
+    value TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (employee_id, field_id),
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (field_id) REFERENCES custom_fields(id) ON DELETE CASCADE
+);
+
+-- ============================================================================
 -- 3. CORE EMPLOYEE & SKILLS TABLES
 -- ============================================================================
 
@@ -142,7 +183,6 @@ CREATE TABLE IF NOT EXISTS employees (
     location TEXT NOT NULL,
     total_experience REAL NOT NULL DEFAULT 0.0,
     current_role TEXT NOT NULL,
-    owlsure_designation TEXT NOT NULL,
     profile_completion INTEGER DEFAULT 0 CHECK(profile_completion BETWEEN 0 AND 100),
     status TEXT DEFAULT 'In Progress' CHECK(status IN ('Complete', 'In Progress', 'Needs Review')),
     avatar_color TEXT,

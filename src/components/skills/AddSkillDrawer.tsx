@@ -9,6 +9,7 @@ import { CustomSelect } from '../common/CustomSelect';
 import { useToast } from '../common/Toast';
 import { useDropdowns } from '../../hooks/useDropdowns';
 import { dropdownService } from '../../services/dropdownService';
+import { api } from '../../services/api';
 
 interface AddSkillDrawerProps {
   isOpen: boolean;
@@ -43,6 +44,22 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
   const [lastProject, setLastProject] = useState('');
   const [specialization, setSpecialization] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [fieldOverrides, setFieldOverrides] = useState<Record<string, { label: string | null; hidden: boolean }>>({});
+
+  useEffect(() => {
+    if (!isOpen) return;
+    dropdownService.fetchAll().catch(() => {});
+    api.getOverrides().then((res) => {
+      const relevant: Record<string, { label: string | null; hidden: boolean }> = {};
+      for (const [k, v] of Object.entries(res?.overrides || {})) {
+        if (k.startsWith('skill_form:')) relevant[k.replace('skill_form:', '')] = v;
+      }
+      setFieldOverrides(relevant);
+    }).catch(() => {});
+  }, [isOpen]);
+
+  const isFieldVisible = (key: string) => !fieldOverrides[key]?.hidden;
+  const fieldLabel = (key: string, fallback: string) => fieldOverrides[key]?.label || fallback;
 
   // Lock background body scroll while modal is open
   useEffect(() => {
@@ -212,8 +229,10 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
                   {selectedTechName || (isCustomMode && customTechInput) || 'Choose Technology'}
                 </h3>
                 <p className="text-[11px] text-[#64748B] truncate mt-0.5">
-                  Category: <span className="font-semibold text-[#0B1B4D]">{category}</span> • Level:{' '}
-                  <span className="font-semibold text-[#016DD9]">{proficiency}</span>
+                  Category: <span className="font-semibold text-[#0B1B4D]">{category}</span>
+                  {isFieldVisible('proficiency') && (
+                    <> • Level: <span className="font-semibold text-[#016DD9]">{proficiency}</span></>
+                  )}
                 </p>
               </div>
             </div>
@@ -232,7 +251,7 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
             {/* Col 1: Skill Category */}
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-[#0B1B4D] uppercase tracking-wide">
-                Skill Category <span className="text-rose-500">*</span>
+                {fieldLabel('category', 'Skill Category')} <span className="text-rose-500">*</span>
               </label>
               <CustomSelect
                 value={category}
@@ -255,7 +274,7 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
             {/* Col 2: Technology / Skill Selection */}
             <div className="space-y-1 relative">
               <label className="block text-[11px] font-bold text-[#0B1B4D] uppercase tracking-wide">
-                Technology / Skill <span className="text-rose-500">*</span>
+                {fieldLabel('technology', 'Technology / Skill')} <span className="text-rose-500">*</span>
               </label>
 
               {isCustomMode ? (
@@ -355,9 +374,10 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
             </div>
 
             {/* Col 1: Proficiency Level */}
+            {isFieldVisible('proficiency') && (
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-[#0B1B4D] uppercase tracking-wide">
-                Proficiency Level <span className="text-rose-500">*</span>
+                {fieldLabel('proficiency', 'Proficiency Level')} <span className="text-rose-500">*</span>
               </label>
               <CustomSelect
                 value={proficiency}
@@ -368,11 +388,13 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
                 allowOther={false}
               />
             </div>
+            )}
 
             {/* Col 2: Total Experience (Years) */}
+            {isFieldVisible('experience_years') && (
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-[#0B1B4D] uppercase tracking-wide">
-                Experience (Years) <span className="text-rose-500">*</span>
+                {fieldLabel('experience_years', 'Experience (Years)')} <span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"
@@ -388,11 +410,13 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
                 className="w-full px-3.5 py-2 bg-[#F8FAFD] hover:bg-white focus:bg-white border border-[#E3EAF5] focus:border-[#016DD9] rounded-xl text-xs md:text-sm text-[#0B1B4D] font-medium focus:outline-none transition-all shadow-2xs"
               />
             </div>
+            )}
 
             {/* Col 1: Last Used (Month / Year) */}
+            {isFieldVisible('last_used') && (
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-[#0B1B4D] uppercase tracking-wide">
-                Last Used (Month / Year) <span className="text-rose-500">*</span>
+                {fieldLabel('last_used', 'Last Used (Month / Year)')} <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <Calendar className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -405,11 +429,13 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
                 />
               </div>
             </div>
+            )}
 
             {/* Col 2: Last Project */}
+            {isFieldVisible('last_project') && (
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-[#0B1B4D] uppercase tracking-wide">
-                Last Project / Client
+                {fieldLabel('last_project', 'Last Project / Client')}
               </label>
               <input
                 type="text"
@@ -419,11 +445,13 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
                 className="w-full px-3.5 py-2 bg-[#F8FAFD] hover:bg-white focus:bg-white border border-[#E3EAF5] focus:border-[#016DD9] rounded-xl text-xs md:text-sm text-[#0B1B4D] font-medium focus:outline-none transition-all shadow-2xs"
               />
             </div>
+            )}
 
             {/* Full Width (Spans 2 Cols): Specialization */}
+            {isFieldVisible('specialization') && (
             <div className="sm:col-span-2 space-y-1">
               <label className="block text-[11px] font-bold text-[#0B1B4D] uppercase tracking-wide">
-                Specialization / Focus Area
+                {fieldLabel('specialization', 'Specialization / Focus Area')}
               </label>
               <input
                 type="text"
@@ -433,6 +461,7 @@ export const AddSkillDrawer: React.FC<AddSkillDrawerProps> = ({
                 className="w-full px-3.5 py-2 bg-[#F8FAFD] hover:bg-white focus:bg-white border border-[#E3EAF5] focus:border-[#016DD9] rounded-xl text-xs md:text-sm text-[#0B1B4D] font-medium focus:outline-none transition-all shadow-2xs"
               />
             </div>
+            )}
           </div>
 
           {/* Info Notice Box - Compact */}

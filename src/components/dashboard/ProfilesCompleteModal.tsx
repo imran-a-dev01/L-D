@@ -276,9 +276,9 @@ export const ProfilesCompleteModal: React.FC<ProfilesCompleteModalProps> = ({
 
                     <div className="text-[11px] text-[#94A3B8]">
                       {isHigh ? (
-                        <span className="text-emerald-700 font-medium">✓ Fully verified & deployment-ready</span>
+                        <span className="text-emerald-700 font-medium">✓ Comprehensive profile completed</span>
                       ) : isMedium ? (
-                        <span className="text-amber-700 font-medium">⚠ Pending domain depth verification</span>
+                        <span className="text-amber-700 font-medium">⚠ Partially filled, details pending</span>
                       ) : (
                         <span className="text-rose-600 font-medium">✗ Basic details logged, skills missing</span>
                       )}

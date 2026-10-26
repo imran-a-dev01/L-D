@@ -21,13 +21,18 @@ import employeeRoutes from './routes/employees.js';
 import skillRoutes from './routes/skills.js';
 import dropdownRoutes from './routes/dropdowns.js';
 import analyticsRoutes from './routes/analytics.js';
+import masterDataRoutes from './routes/masterData.js';
 import './db/seed.js'; // Ensure database & seed are initialized
 
 const app = express();
 const PORT = process.env.PORT || 81;
 const HOST = process.env.HOST || '0.0.0.0';
+const isProduction = process.env.NODE_ENV === 'production';
 
-// Allowed origins — cover Vite's auto-increment range
+// Azure App Service sits behind a reverse proxy
+if (isProduction) app.set('trust proxy', 1);
+
+// CORS — in production same-origin serves both API + UI, so CORS is only needed if explicitly configured
 const defaultOrigins = [];
 for (let p = 5173; p <= 5185; p++) {
   defaultOrigins.push(`http://localhost:${p}`, `http://127.0.0.1:${p}`);
@@ -36,9 +41,8 @@ const corsOrigins = process.env.CORS_ORIGIN
   ? Array.from(new Set([...defaultOrigins, ...process.env.CORS_ORIGIN.split(',').map(s => s.trim())]))
   : defaultOrigins;
 
-// Middleware
 app.use(cors({
-  origin: corsOrigins,
+  origin: isProduction && !process.env.CORS_ORIGIN ? false : corsOrigins,
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -54,6 +58,7 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/skills', skillRoutes);
 app.use('/api/dropdowns', dropdownRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/master-data', masterDataRoutes);
 
 const distPath = path.join(rootDir, 'dist');
 if (fs.existsSync(distPath)) {
@@ -69,6 +74,14 @@ if (fs.existsSync(distPath)) {
 app.use((err, req, res, next) => {
   console.error('Unhandled server error:', err);
   res.status(500).json({ error: 'Internal server error' });
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[NEXUS Server] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[NEXUS Server] Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 app.listen(PORT, HOST, () => {

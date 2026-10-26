@@ -22,6 +22,7 @@ import { Employee } from '../../types/employee';
 import { SkillIcon } from '../common/SkillIcon';
 import { ChipList } from '../common/ChipList';
 import { useToast } from '../common/Toast';
+import { api } from '../../services/api';
 
 interface EmployeeProfileModalProps {
   employee: Employee | null;
@@ -48,6 +49,19 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const [skillSearch, setSkillSearch] = useState<string>('');
   const [showAllDomains, setShowAllDomains] = useState<boolean>(false);
 
+  const [customFieldLabels, setCustomFieldLabels] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!employee?.customData || Object.keys(employee.customData).length === 0) return;
+    (async () => {
+      try {
+        const res = await api.getCustomFields();
+        const map: Record<string, string> = {};
+        for (const f of res.fields) map[String(f.id)] = f.label;
+        setCustomFieldLabels(map);
+      } catch { /* silent */ }
+    })();
+  }, [employee?.customData]);
+
   // Lock background body scroll while modal is open
   useEffect(() => {
     if (isOpen) {
@@ -66,24 +80,53 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     setShowAllDomains(false);
   }, [employee?.id]);
 
-  // Category counts for Verified Technical Skills
+  // Combined list of technical skills and domain expertise
+  const allCombinedSkills = useMemo(() => {
+    const tech = (employee?.technicalSkills || []).map((s) => ({
+      id: s.id || s.name,
+      name: s.name,
+      category: s.category || 'Other',
+      proficiency: s.proficiency,
+      experienceYears: s.experienceYears || 0,
+      lastUsed: s.lastUsed,
+      lastProject: s.lastProject,
+      specialization: s.specialization,
+      isDomain: false,
+    }));
+    const domain = (employee?.domainExpertise || []).map((d) => ({
+      id: d.id ? `domain_${d.id}` : `domain_${d.domain}`,
+      name: d.domain === 'Others' ? d.customDomain || 'Others' : d.domain,
+      category: 'Domain',
+      proficiency: d.proficiency,
+      experienceYears: d.experienceYears || 0,
+      lastUsed: d.lastUsed,
+      lastProject: d.lastProject,
+      specialization: d.specialization,
+      isDomain: true,
+    }));
+    return [...tech, ...domain];
+  }, [employee?.technicalSkills, employee?.domainExpertise]);
+
+  // Category counts including Domain
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    (employee?.technicalSkills || []).forEach((s) => {
+    allCombinedSkills.forEach((s) => {
       const cat = s.category?.trim();
       if (cat) {
         counts[cat] = (counts[cat] || 0) + 1;
       }
     });
     return counts;
-  }, [employee?.technicalSkills]);
+  }, [allCombinedSkills]);
+
+  const totalSkillCount = allCombinedSkills.length;
 
   const categories = useMemo(() => {
     return ['All', ...Object.keys(categoryCounts).sort()];
   }, [categoryCounts]);
 
   const filteredSkills = useMemo(() => {
-    let list = employee?.technicalSkills || [];
+    let list = allCombinedSkills;
     if (selectedCategory !== 'All') {
       list = list.filter((s) => s.category?.trim() === selectedCategory);
     }
@@ -94,7 +137,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       );
     }
     return list;
-  }, [employee?.technicalSkills, selectedCategory, skillSearch]);
+  }, [allCombinedSkills, selectedCategory, skillSearch]);
 
   if (!isOpen || !employee) return null;
 
@@ -188,8 +231,8 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               <div className="text-lg font-bold text-emerald-600 mt-0.5">{employee.profileCompletion || 0}%</div>
             </div>
             <div className="p-3 bg-[#F8FAFD] rounded-xl border border-[#E3EAF5]">
-              <div className="text-[11px] text-[#64748B] font-semibold">Technical Skills</div>
-              <div className="text-lg font-bold text-[#1265FF] mt-0.5">{employee.technicalSkills?.length || 0} Tracked</div>
+              <div className="text-[11px] text-[#64748B] font-semibold">Total Skills</div>
+              <div className="text-lg font-bold text-[#1265FF] mt-0.5">{totalSkillCount} Tracked</div>
             </div>
             <div className="p-3 bg-[#F8FAFD] rounded-xl border border-[#E3EAF5]">
               <div className="text-[11px] text-[#64748B] font-semibold">Deployable Roles</div>
@@ -234,10 +277,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 <span className="text-[#64748B]">Current Role:</span>
                 <span className="font-semibold text-[#0B1B4D]">{employee.currentRole?.trim() || '—'}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-100 pb-2">
-                <span className="text-[#64748B]">OwlSure Designation:</span>
-                <span className="font-semibold text-[#0B1B4D]">{employee.owlSureDesignation?.trim() || '—'}</span>
-              </div>
             </div>
 
             {/* Deployable Roles as Chips with Show All Toggle */}
@@ -261,11 +300,28 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
             </div>
           </div>
 
-          {/* Verified Technical Skills Section with Category Filter & Search */}
+          {/* Custom Fields */}
+          {employee.customData && Object.keys(employee.customData).filter((k) => (employee.customData![k] || '').trim()).length > 0 && (
+            <div className="space-y-2.5 pt-2">
+              <h4 className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider">Additional Information</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {Object.entries(employee.customData)
+                  .filter(([, v]) => (v || '').trim())
+                  .map(([fieldId, value]) => (
+                    <div key={fieldId} className="flex justify-between border-b border-slate-100 pb-2">
+                      <span className="text-[#64748B]">{customFieldLabels[fieldId] || `Field #${fieldId}`}:</span>
+                      <span className="font-semibold text-[#0B1B4D]">{value}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Total Skills Section with Category Filter & Search */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider">
-                Verified Technical Skills ({employee.technicalSkills?.length || 0})
+                Total Skills ({totalSkillCount})
               </h4>
             </div>
 
@@ -274,7 +330,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
                   {categories.map((cat) => {
-                    const count = cat === 'All' ? employee.technicalSkills?.length || 0 : categoryCounts[cat] || 0;
+                    const count = cat === 'All' ? totalSkillCount : categoryCounts[cat] || 0;
                     const isSelected = selectedCategory === cat;
                     return (
                       <button
@@ -294,7 +350,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 </div>
 
                 {/* Search input appears only when skills > 8 */}
-                {(employee.technicalSkills?.length || 0) > 8 && (
+                {totalSkillCount > 8 && (
                   <div className="relative w-full sm:w-48 shrink-0">
                     <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
@@ -311,7 +367,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               {/* 2-Column Responsive Grid of Skill Cards */}
               {filteredSkills.length === 0 ? (
                 <div className="p-6 text-center text-xs text-slate-400 italic bg-[#F8FAFD] rounded-xl border border-dashed border-[#DFE5EE]">
-                  {employee.technicalSkills?.length === 0
+                  {totalSkillCount === 0
                     ? '—'
                     : 'No skills found matching search or category'}
                 </div>

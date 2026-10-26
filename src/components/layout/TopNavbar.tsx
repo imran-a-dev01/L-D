@@ -136,7 +136,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           onClick={onOpenProfilesCompleteModal}
           className="header-kpi-chip header-kpi-chip--green group relative flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200/90 hover:border-emerald-300 transition-all cursor-pointer shadow-xs active:scale-[0.98] overflow-hidden"
           style={{ animationDelay: '0.12s' }}
-          title={`${verifiedCount} of ${totalEmployees} profiles verified (${completionRate}% complete)`}
+          title={`${verifiedCount} of ${totalEmployees} profiles completed (${completionRate}% complete)`}
         >
           <div className="header-kpi-shimmer" />
           <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 relative z-[1]">

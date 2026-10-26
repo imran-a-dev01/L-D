@@ -278,22 +278,26 @@ input::-ms-clear {
   transform: translateY(-50%);
 }
 
-/* Morph to X when toggled / collapsed */
+/* Morph to X (Close Symbol) when sidebar is open */
 .uiverse-burger.is-active span:nth-child(1) {
   top: 50%;
   transform: translateY(-50%) rotate(45deg);
-  background: #1265FF;
+  background: var(--burger-color);
 }
 
 .uiverse-burger.is-active span:nth-child(2) {
   bottom: 50%;
   transform: translateY(50%) rotate(-45deg);
-  background: #1265FF;
+  background: var(--burger-color);
 }
 
 .uiverse-burger.is-active span:nth-child(3) {
   transform: translateX(-34px);
   opacity: 0;
+}
+
+.uiverse-burger:hover span {
+  background: #016DD9;
 }
 
 /* Uiverse.io Button Styling (Clean Pill Style, No Shake) */

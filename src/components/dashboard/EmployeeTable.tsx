@@ -52,7 +52,7 @@ const ExpandedSkillsSection: React.FC<ExpandedSkillsSectionProps> = ({ skills = 
     return (
       <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-400 italic">
         <span>Skills:</span>
-        <span>No verified skills recorded</span>
+        <span>No skills recorded</span>
       </div>
     );
   }
@@ -98,7 +98,7 @@ const ExpandedSkillsSection: React.FC<ExpandedSkillsSectionProps> = ({ skills = 
     <div className="mt-3.5 pt-3 border-t border-slate-100 space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
-          Verified Skills ({totalSkills})
+          Total Skills ({totalSkills})
         </span>
         {totalSkills > 12 && (
           <button
@@ -587,7 +587,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                             <SkillChipGroup
                               skills={emp.technicalSkills}
                               maxVisible={2}
-                              popoverTitle={`${emp.name}'s Verified Skills`}
+                              popoverTitle={`${emp.name}'s Total Skills`}
                             />
                           </td>
 
@@ -715,9 +715,9 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                                       </div>
 
                                       <div>
-                                        <dt className="text-[11px] font-medium text-[#64748B]">Total Verified Skills</dt>
+                                        <dt className="text-[11px] font-medium text-[#64748B]">Total Skills</dt>
                                         <dd className="mt-1 font-semibold text-emerald-600">
-                                          {emp.technicalSkills?.length || 0} Standardized Skills
+                                          {(emp.technicalSkills?.length || 0) + (emp.domainExpertise?.length || 0)} Standardized Skills
                                         </dd>
                                       </div>
 
@@ -832,12 +832,12 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
 
                     <div className="mt-3">
                       <div className="text-[11px] font-semibold text-[#64748B] uppercase mb-1.5">
-                        Skills ({emp.technicalSkills?.length || 0})
+                        Total Skills ({(emp.technicalSkills?.length || 0) + (emp.domainExpertise?.length || 0)})
                       </div>
                       <SkillChipGroup
                         skills={emp.technicalSkills}
                         maxVisible={3}
-                        popoverTitle={`${emp.name}'s Verified Skills`}
+                        popoverTitle={`${emp.name}'s Total Skills`}
                       />
                     </div>
                   </div>

@@ -7,7 +7,8 @@ export type SkillCategory =
   | 'Cloud' 
   | 'Data' 
   | 'DevOps & Tools' 
-  | 'Domain Expertise';
+  | 'Domain Expertise'
+  | 'Domain';
 
 export interface TechnicalSkill {
   id: string;

@@ -83,10 +83,16 @@ export const employeeService = {
     const ExcelJSModule = await import('exceljs');
     const ExcelJS = (ExcelJSModule as any).default || ExcelJSModule;
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'NEXUS L&D';
-    workbook.lastModifiedBy = 'NEXUS L&D';
+    workbook.creator = 'Owlsure L&D';
+    workbook.lastModifiedBy = 'Owlsure L&D';
     workbook.created = new Date();
     workbook.modified = new Date();
+
+    let customFields: Array<{ id: number; label: string }> = [];
+    try {
+      const res = await api.getCustomFields();
+      customFields = (res.fields || []).map((f: any) => ({ id: f.id, label: f.label }));
+    } catch { /* custom fields unavailable — export without them */ }
 
     const STANDARD_CATEGORIES = ['Frontend', 'Backend', 'Database', 'Cloud', 'Data', 'DevOps & Tools'] as const;
 
@@ -231,10 +237,11 @@ export const employeeService = {
       { header: 'Location', key: 'location', width: 16 },
       { header: 'Total Experience', key: 'totalExperience', width: 18 },
       { header: 'Current Role', key: 'currentRole', width: 22 },
-      { header: 'OwlSure Designation', key: 'owlSureDesignation', width: 24 },
       { header: 'Status', key: 'status', width: 15 },
       { header: 'Profile Completion', key: 'profileCompletion', width: 18 },
       { header: 'Deployable Roles', key: 'deployableRoles', width: 28 },
+      { header: 'Immediate Technologies', key: 'immediateTechnologies', width: 30 },
+      { header: 'Learning Technologies', key: 'learningTechnologies', width: 30 },
       { header: 'Total Skills', key: 'totalSkills', width: 14 },
       { header: 'Frontend', key: 'cat_frontend', width: 32 },
       { header: 'Backend', key: 'cat_backend', width: 32 },
@@ -246,6 +253,10 @@ export const employeeService = {
 
     if (hasOtherSkills) {
       sheet1Columns.push({ header: 'Other Skills', key: 'cat_other', width: 32 });
+    }
+
+    for (const cf of customFields) {
+      sheet1Columns.push({ header: cf.label, key: `custom_${cf.id}`, width: 22 });
     }
 
     sheet1Columns.push(
@@ -270,10 +281,11 @@ export const employeeService = {
         location: sanitizeText(emp.location),
         totalExperience: sanitizeNumber(emp.totalExperience),
         currentRole: sanitizeText(emp.currentRole),
-        owlSureDesignation: sanitizeText(emp.owlSureDesignation),
         status: sanitizeText(emp.status),
         profileCompletion: sanitizeNumber(emp.profileCompletion) / 100,
         deployableRoles: formatDeployableRoles(emp.deployableRoles || []),
+        immediateTechnologies: (emp.immediateTechnologies || []).map((t: string) => sanitizeText(t)).filter(Boolean).join('\n'),
+        learningTechnologies: (emp.learningTechnologies || []).map((t: string) => sanitizeText(t)).filter(Boolean).join('\n'),
         totalSkills: (emp.technicalSkills || []).length,
         cat_frontend: formatCategorySkills(emp.technicalSkills, 'Frontend'),
         cat_backend: formatCategorySkills(emp.technicalSkills, 'Backend'),
@@ -287,6 +299,10 @@ export const employeeService = {
 
       if (hasOtherSkills) {
         rowData.cat_other = formatCategorySkills(emp.technicalSkills, '', true);
+      }
+
+      for (const cf of customFields) {
+        rowData[`custom_${cf.id}`] = sanitizeText(emp.customData?.[String(cf.id)] || '');
       }
 
       sheet1.addRow(rowData);
@@ -319,6 +335,8 @@ export const employeeService = {
         const colKey = sheet1Columns[colNumber - 1]?.key;
         if (
           colKey === 'deployableRoles' ||
+          colKey === 'immediateTechnologies' ||
+          colKey === 'learningTechnologies' ||
           colKey === 'domainExpertise' ||
           (colKey && colKey.startsWith('cat_'))
         ) {
@@ -490,22 +508,39 @@ export const employeeService = {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = customFilename || `nexus_workforce_${new Date().toISOString().split('T')[0]}.xlsx`;
+    link.download = customFilename || `owlsure_workforce_${new Date().toISOString().split('T')[0]}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   },
 
-  exportCsv(list: Employee[], customFilename?: string) {
+  async exportCsv(list: Employee[], customFilename?: string) {
+    let customFields: Array<{ id: number; label: string }> = [];
+    try {
+      const res = await api.getCustomFields();
+      customFields = (res.fields || []).map((f: any) => ({ id: f.id, label: f.label }));
+    } catch { /* proceed without custom fields */ }
+
     const headers = [
       'Employee ID',
       'Name',
+      'Email',
       'Designation',
       'Business Unit',
       'Reporting Manager',
       'Reporting Manager Email',
+      'Current Project',
+      'Current Customer',
       'Location',
+      'Total Experience',
+      'Current Role',
+      'Status',
+      'Profile Completion',
+      'Deployable Roles',
+      'Immediate Technologies',
+      'Learning Technologies',
+      ...customFields.map((cf) => cf.label),
       'Category',
       'Skill',
       'Proficiency',
@@ -513,6 +548,7 @@ export const employeeService = {
       'Last Used',
       'Last Project',
       'Specialization',
+      'Domain Expertise',
     ];
 
     const escapeCsv = (val: any) => {
@@ -524,38 +560,54 @@ export const employeeService = {
       return `"${str.replace(/"/g, '""')}"`;
     };
 
+    const formatDomains = (emp: Employee) =>
+      (emp.domainExpertise || [])
+        .map((d) => {
+          const name = (d.domain === 'Others' ? d.customDomain : d.domain)?.trim() || '';
+          if (!name) return '';
+          const parts: string[] = [];
+          if (d.proficiency?.trim()) parts.push(d.proficiency.trim());
+          if (d.experienceYears) parts.push(`${d.experienceYears}y`);
+          return parts.length ? `${name} (${parts.join(', ')})` : name;
+        })
+        .filter(Boolean)
+        .join('; ');
+
+    const buildBaseFields = (emp: Employee) => [
+      escapeCsv(emp.id),
+      escapeCsv(emp.name),
+      escapeCsv(emp.email),
+      escapeCsv(emp.designation),
+      escapeCsv(emp.businessUnit),
+      escapeCsv(emp.reportingManager || ''),
+      escapeCsv(emp.reportingManagerEmail || ''),
+      escapeCsv(emp.currentProject || ''),
+      escapeCsv(emp.currentCustomer || ''),
+      escapeCsv(emp.location),
+      typeof emp.totalExperience === 'number' ? emp.totalExperience : 0,
+      escapeCsv(emp.currentRole || ''),
+      escapeCsv(emp.status || ''),
+      `${emp.profileCompletion || 0}%`,
+      escapeCsv((emp.deployableRoles || []).join('; ')),
+      escapeCsv((emp.immediateTechnologies || []).join('; ')),
+      escapeCsv((emp.learningTechnologies || []).join('; ')),
+      ...customFields.map((cf) => escapeCsv(emp.customData?.[String(cf.id)] || '')),
+    ];
+
     const rows: (string | number)[][] = [];
 
     list.forEach((emp) => {
       const skills = emp.technicalSkills || [];
+      const domainStr = formatDomains(emp);
+      const base = buildBaseFields(emp);
+
       if (skills.length === 0) {
-        rows.push([
-          escapeCsv(emp.id),
-          escapeCsv(emp.name),
-          escapeCsv(emp.designation),
-          escapeCsv(emp.businessUnit),
-          escapeCsv(emp.reportingManager || ''),
-          escapeCsv(emp.reportingManagerEmail || ''),
-          escapeCsv(emp.location),
-          '""',
-          '""',
-          '""',
-          0,
-          '""',
-          '""',
-          '""',
-        ]);
+        rows.push([...base, '""', '""', '""', 0, '""', '""', '""', escapeCsv(domainStr)]);
       } else {
-        skills.forEach((s) => {
+        skills.forEach((s, idx) => {
           const expYears = typeof s.experienceYears === 'number' ? s.experienceYears : (parseFloat(String(s.experienceYears)) || 0);
           rows.push([
-            escapeCsv(emp.id),
-            escapeCsv(emp.name),
-            escapeCsv(emp.designation),
-            escapeCsv(emp.businessUnit),
-            escapeCsv(emp.reportingManager || ''),
-            escapeCsv(emp.reportingManagerEmail || ''),
-            escapeCsv(emp.location),
+            ...base,
             escapeCsv(s.category),
             escapeCsv(s.name),
             escapeCsv(s.proficiency),
@@ -563,6 +615,7 @@ export const employeeService = {
             escapeCsv(s.lastUsed),
             escapeCsv(s.lastProject),
             escapeCsv(s.specialization),
+            idx === 0 ? escapeCsv(domainStr) : '""',
           ]);
         });
       }
@@ -573,7 +626,7 @@ export const employeeService = {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', customFilename || `nexus_workforce_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', customFilename || `owlsure_workforce_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -586,7 +639,7 @@ export const employeeService = {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', customFilename || `nexus_workforce_${new Date().toISOString().split('T')[0]}.json`);
+    link.setAttribute('download', customFilename || `owlsure_workforce_${new Date().toISOString().split('T')[0]}.json`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

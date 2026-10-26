@@ -32,6 +32,22 @@ import { useToast } from '../components/common/Toast';
 import { useDropdowns } from '../hooks/useDropdowns';
 import { dropdownService } from '../services/dropdownService';
 import { employeeService } from '../services/employeeService';
+import { api } from '../services/api';
+
+interface CustomFieldDef {
+  id: number;
+  section: string;
+  label: string;
+  field_type: string;
+  is_required: number;
+  sort_order: number;
+}
+
+interface CustomSectionDef {
+  id: number;
+  label: string;
+  after_key: string;
+}
 
 interface CreateEmployeePageProps {
   initialEmployee?: Employee | null;
@@ -71,7 +87,6 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
   const [location, setLocation] = useState(initialEmployee?.location || '');
   const [totalExperience, setTotalExperience] = useState<number | string>(initialEmployee?.totalExperience ?? 0);
   const [currentRole, setCurrentRole] = useState(initialEmployee?.currentRole || '');
-  const [owlSureDesignation, setOwlSureDesignation] = useState(initialEmployee?.owlSureDesignation || '');
   const [deployableRoles, setDeployableRoles] = useState<string[]>(
     initialEmployee?.deployableRoles || []
   );
@@ -160,6 +175,68 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
   const [domainProject, setDomainProject] = useState('');
   const [domainSpec, setDomainSpec] = useState('');
 
+  // ── Custom fields from Master Data ────────────────────────────────────
+  const [customFields, setCustomFields] = useState<CustomFieldDef[]>([]);
+  const [customSections, setCustomSections] = useState<CustomSectionDef[]>([]);
+  const [customFieldOptions, setCustomFieldOptions] = useState<Record<number, string[]>>({});
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>(
+    initialEmployee?.customData || {}
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [fieldsRes, sectionsRes] = await Promise.all([
+          api.getCustomFields(),
+          api.getCustomSections(),
+        ]);
+        if (!mounted) return;
+        setCustomFields(fieldsRes.fields);
+        setCustomSections(sectionsRes.sections);
+
+        const dropdownFields = fieldsRes.fields.filter((f) => f.field_type === 'dropdown');
+        const optionsMap: Record<number, string[]> = {};
+        await Promise.all(
+          dropdownFields.map(async (f) => {
+            try {
+              const res = await api.getCustomFieldOptions(f.id);
+              optionsMap[f.id] = res.options.map((o) => o.value);
+            } catch { /* silent */ }
+          })
+        );
+        if (mounted) setCustomFieldOptions(optionsMap);
+      } catch { /* silent */ }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const setCustomValue = (fieldId: number, value: string) => {
+    setCustomFieldValues((prev) => ({ ...prev, [String(fieldId)]: value }));
+  };
+
+  const customFieldsBySection = useMemo(() => {
+    const map: Record<string, CustomFieldDef[]> = {};
+    for (const f of customFields) {
+      if (!map[f.section]) map[f.section] = [];
+      map[f.section].push(f);
+    }
+    return map;
+  }, [customFields]);
+
+  const customSectionsWithFields = useMemo(() => {
+    return customSections
+      .filter((cs) => {
+        const key = `custom_section_${cs.id}`;
+        return customFieldsBySection[key] && customFieldsBySection[key].length > 0;
+      })
+      .map((cs) => ({
+        ...cs,
+        sectionKey: `custom_section_${cs.id}`,
+        fields: customFieldsBySection[`custom_section_${cs.id}`] || [],
+      }));
+  }, [customSections, customFieldsBySection]);
+
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -177,13 +254,18 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
     if (!businessUnit.trim()) newErrors.businessUnit = 'Business Unit is required';
     if (!location.trim()) newErrors.location = 'Location is required';
     if (!currentRole.trim()) newErrors.currentRole = 'Current Role is required';
-    if (!owlSureDesignation.trim()) newErrors.owlSureDesignation = 'OwlSure Designation is required';
     if (!reportingManager.trim()) newErrors.reportingManager = 'Reporting Manager is required';
 
     if (reportingManagerEmail.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(reportingManagerEmail.trim())) {
         newErrors.reportingManagerEmail = 'Please enter a valid email address';
+      }
+    }
+
+    for (const f of customFields) {
+      if (f.is_required && !(customFieldValues[String(f.id)] || '').trim()) {
+        newErrors[`custom_${f.id}`] = `${f.label} is required`;
       }
     }
 
@@ -272,12 +354,12 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       setLocation(initialEmployee.location || '');
       setTotalExperience(initialEmployee.totalExperience ?? 0);
       setCurrentRole(initialEmployee.currentRole || '');
-      setOwlSureDesignation(initialEmployee.owlSureDesignation || '');
       setDeployableRoles(initialEmployee.deployableRoles || []);
       setTechnicalSkills(initialEmployee.technicalSkills || []);
       setDomainExpertiseList(initialEmployee.domainExpertise || []);
       setImmediateTechnologies(initialEmployee.immediateTechnologies || []);
       setLearningTechnologies(initialEmployee.learningTechnologies || []);
+      if (initialEmployee.customData) setCustomFieldValues(initialEmployee.customData);
     } else if (initialId) {
       setId(initialId);
     }
@@ -309,7 +391,6 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       location,
       totalExperience: Number(totalExperience) || 0,
       currentRole,
-      owlSureDesignation,
       deployableRoles,
       technicalSkills: technicalSkills.map((s) => ({
         ...s,
@@ -321,6 +402,9 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       })),
       immediateTechnologies,
       learningTechnologies,
+      customData: Object.fromEntries(
+        Object.entries(customFieldValues).filter(([, v]) => v && v.trim())
+      ),
       profileCompletion: 0,
       status: 'In Progress',
       updatedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
@@ -789,34 +873,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
               <div className="min-h-[18px] mt-1" />
             </div>
 
-            {/* ROW 4 - Field 13: OwlSure Designation */}
-            <div className="col-span-1 md:col-span-2 lg:col-span-1 2xl:col-span-1 flex flex-col justify-start">
-              <div className="flex items-center justify-between h-5 mb-2 select-none">
-                <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
-                  <span>Designation as per OwlSure</span>
-                  <span className="text-rose-500 font-bold">*</span>
-                </label>
-              </div>
-              <div className="h-11">
-                <CustomSelect
-                  value={owlSureDesignation}
-                  onChange={(val) => setOwlSureDesignation(val)}
-                  options={dropdownOptions.owlsureDesignations}
-                  icon={<Award className="w-4 h-4" />}
-                  placeholder="Select OwlSure designation..."
-                  allowOther={true}
-                  size="md"
-                  otherPlaceholder="Specify OwlSure designation..."
-                  onSaveCustomOption={async (val) => dropdownService.addOption('owlsure_designation', val)}
-                  isLoading={dropdownsLoading}
-                  isError={dropdownsError}
-                  onRetry={retryDropdowns}
-                />
-              </div>
-              <div className="min-h-[18px] mt-1" />
-            </div>
-
-            {/* ROW 4 - Field 14: Deployable Roles */}
+            {/* ROW 4 - Field 13: Deployable Roles */}
             <div className="col-span-1 md:col-span-2 lg:col-span-2 2xl:col-span-3 flex flex-col justify-start">
               <div className="flex items-center justify-between h-5 mb-2 select-none">
                 <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
@@ -896,6 +953,130 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
             </div>
 
           </div>
+
+          {/* ── Custom Fields from Master Data (employee_info section) ── */}
+          {(customFieldsBySection['employee_info'] || []).length > 0 && (
+            <div className="pt-4 border-t border-slate-100 space-y-4">
+              <div className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Additional Fields</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-x-5 sm:gap-x-6 gap-y-4 sm:gap-y-5">
+                {(customFieldsBySection['employee_info'] || []).map((f) => (
+                  <div key={f.id} className="flex flex-col justify-start">
+                    <div className="flex items-center justify-between h-5 mb-2 select-none">
+                      <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                        <span>{f.label}</span>
+                        {f.is_required === 1 && <span className="text-rose-500 font-bold">*</span>}
+                      </label>
+                      <span className="text-[10px] text-violet-500 font-medium shrink-0 ml-2">Custom</span>
+                    </div>
+                    <div className="h-11">
+                      {f.field_type === 'dropdown' ? (
+                        <CustomSelect
+                          value={customFieldValues[String(f.id)] || ''}
+                          onChange={(val) => {
+                            setCustomValue(f.id, val);
+                            if (errors[`custom_${f.id}`]) setErrors((prev) => ({ ...prev, [`custom_${f.id}`]: '' }));
+                          }}
+                          options={(customFieldOptions[f.id] || []).map((o) => o)}
+                          placeholder={`Select ${f.label.toLowerCase()}...`}
+                          allowOther={true}
+                          size="md"
+                          otherPlaceholder={`Enter custom ${f.label.toLowerCase()}...`}
+                          onSaveCustomOption={async (val) => {
+                            try {
+                              await api.addCustomFieldOption(f.id, val);
+                              const res = await api.getCustomFieldOptions(f.id);
+                              setCustomFieldOptions((prev) => ({ ...prev, [f.id]: res.options.map((o) => o.value) }));
+                              return true;
+                            } catch {
+                              return false;
+                            }
+                          }}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={customFieldValues[String(f.id)] || ''}
+                          onChange={(e) => {
+                            setCustomValue(f.id, e.target.value);
+                            if (errors[`custom_${f.id}`]) setErrors((prev) => ({ ...prev, [`custom_${f.id}`]: '' }));
+                          }}
+                          placeholder={`Enter ${f.label.toLowerCase()}...`}
+                          className={`w-full px-3.5 py-2.5 bg-white border ${
+                            errors[`custom_${f.id}`] ? 'border-rose-400 ring-1 ring-rose-200' : 'border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100'
+                          } rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs h-11 transition-all`}
+                        />
+                      )}
+                    </div>
+                    <div className="min-h-[18px] mt-1 text-[11px] text-rose-500 leading-tight">
+                      {errors[`custom_${f.id}`] || ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Custom Sections with their fields ── */}
+          {customSectionsWithFields.map((cs) => (
+            <div key={cs.id} className="pt-4 border-t border-slate-100 space-y-4">
+              <div className="text-xs font-bold text-[#64748B] uppercase tracking-wider">{cs.label}</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-x-5 sm:gap-x-6 gap-y-4 sm:gap-y-5">
+                {cs.fields.map((f) => (
+                  <div key={f.id} className="flex flex-col justify-start">
+                    <div className="flex items-center justify-between h-5 mb-2 select-none">
+                      <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                        <span>{f.label}</span>
+                        {f.is_required === 1 && <span className="text-rose-500 font-bold">*</span>}
+                      </label>
+                      <span className="text-[10px] text-violet-500 font-medium shrink-0 ml-2">Custom</span>
+                    </div>
+                    <div className="h-11">
+                      {f.field_type === 'dropdown' ? (
+                        <CustomSelect
+                          value={customFieldValues[String(f.id)] || ''}
+                          onChange={(val) => {
+                            setCustomValue(f.id, val);
+                            if (errors[`custom_${f.id}`]) setErrors((prev) => ({ ...prev, [`custom_${f.id}`]: '' }));
+                          }}
+                          options={(customFieldOptions[f.id] || []).map((o) => o)}
+                          placeholder={`Select ${f.label.toLowerCase()}...`}
+                          allowOther={true}
+                          size="md"
+                          otherPlaceholder={`Enter custom ${f.label.toLowerCase()}...`}
+                          onSaveCustomOption={async (val) => {
+                            try {
+                              await api.addCustomFieldOption(f.id, val);
+                              const res = await api.getCustomFieldOptions(f.id);
+                              setCustomFieldOptions((prev) => ({ ...prev, [f.id]: res.options.map((o) => o.value) }));
+                              return true;
+                            } catch {
+                              return false;
+                            }
+                          }}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={customFieldValues[String(f.id)] || ''}
+                          onChange={(e) => {
+                            setCustomValue(f.id, e.target.value);
+                            if (errors[`custom_${f.id}`]) setErrors((prev) => ({ ...prev, [`custom_${f.id}`]: '' }));
+                          }}
+                          placeholder={`Enter ${f.label.toLowerCase()}...`}
+                          className={`w-full px-3.5 py-2.5 bg-white border ${
+                            errors[`custom_${f.id}`] ? 'border-rose-400 ring-1 ring-rose-200' : 'border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100'
+                          } rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs h-11 transition-all`}
+                        />
+                      )}
+                    </div>
+                    <div className="min-h-[18px] mt-1 text-[11px] text-rose-500 leading-tight">
+                      {errors[`custom_${f.id}`] || ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
 
           {/* Stepper Footer Action */}
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
@@ -1403,9 +1584,6 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
               <div className="text-xs text-[#64748B]">
                 <span className="font-semibold text-[#0B1B4D]">Current Role:</span> {currentRole || '—'}
               </div>
-              <div className="text-xs text-[#64748B]">
-                <span className="font-semibold text-[#0B1B4D]">OwlSure Designation:</span> {owlSureDesignation || '—'}
-              </div>
               {deployableRoles.length > 0 && (
                 <div className="pt-1.5">
                   <div className="text-[11px] font-semibold text-[#64748B] mb-1">Deployable Roles ({deployableRoles.length}):</div>
@@ -1420,6 +1598,23 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
               )}
             </div>
           </div>
+
+          {/* Custom Fields Preview */}
+          {customFields.filter((f) => (customFieldValues[String(f.id)] || '').trim()).length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Custom Fields</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+                {customFields
+                  .filter((f) => (customFieldValues[String(f.id)] || '').trim())
+                  .map((f) => (
+                    <div key={f.id} className="p-3 rounded-xl bg-[#F8FAFD] border border-[#E3EAF5]">
+                      <div className="text-[11px] font-semibold text-[#64748B] mb-0.5">{f.label}</div>
+                      <div className="text-sm font-bold text-[#0B1B4D] truncate">{customFieldValues[String(f.id)]}</div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
 
           {/* Technical Skills Preview with wrapping chips */}
           <div className="space-y-2">

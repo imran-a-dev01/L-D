@@ -14,6 +14,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { SkillCoveragePage } from './pages/SkillCoveragePage';
 import { SkillIntelligencePage } from './pages/SkillIntelligencePage';
 import { AdminEditPage } from './pages/AdminEditPage';
+import { MasterDataPage } from './pages/MasterDataPage';
 import { TopNavbar } from './components/layout/TopNavbar';
 import { Sidebar, NavigationItem } from './components/layout/Sidebar';
 import { PageContainer } from './components/layout/PageContainer';
@@ -53,6 +54,7 @@ function AdminLayout({ onLogout }: { onLogout: () => void }) {
     if (p === '/admin/profile-complete') return 'profile-complete';
     if (p === '/admin/skill-coverage') return 'skill-coverage';
     if (p === '/admin/skills') return 'skills';
+    if (p === '/admin/master-data') return 'master-data';
     return 'overview';
   }, [location.pathname]);
 
@@ -175,6 +177,7 @@ function AdminLayout({ onLogout }: { onLogout: () => void }) {
       else if (item === 'profile-complete') navigate('/admin/profile-complete');
       else if (item === 'skill-coverage') navigate('/admin/skill-coverage');
       else if (item === 'skills') navigate('/admin/skills');
+      else if (item === 'master-data') navigate('/admin/master-data');
     }
   };
 
@@ -375,6 +378,9 @@ function AdminLayout({ onLogout }: { onLogout: () => void }) {
                     />
                   }
                 />
+
+                {/* Route: /admin/master-data */}
+                <Route path="master-data" element={<MasterDataPage />} />
 
                 {/* Route: /admin/employees/:id/edit */}
                 <Route

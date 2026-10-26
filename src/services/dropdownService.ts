@@ -4,7 +4,6 @@ export interface DropdownData {
   practices: string[];
   locations: string[];
   designations: string[];
-  owlsureDesignations: string[];
   currentRoles: string[];
   deployableRoles: string[];
   projects: string[];
@@ -27,7 +26,6 @@ const DEFAULT_DROPDOWNS: DropdownData = {
   practices: [],
   locations: [],
   designations: [],
-  owlsureDesignations: [],
   currentRoles: [],
   deployableRoles: [],
   projects: [],
@@ -122,6 +120,16 @@ class DropdownService {
     }
   }
 
+  async updateOption(type: string, id: number, value: string, email?: string): Promise<void> {
+    await api.updateDropdownOption(type, id, value, email);
+    await this.fetchAll();
+  }
+
+  async deleteOption(type: string, id: number): Promise<void> {
+    await api.deleteDropdownOption(type, id);
+    await this.fetchAll();
+  }
+
   async fetchAll(): Promise<DropdownData> {
     if (this.fetchPromise) return this.fetchPromise;
 
@@ -137,7 +145,6 @@ class DropdownService {
           practices: deduplicateStrings(res.practices || res.businessUnits || []),
           locations: deduplicateStrings(res.locations || []),
           designations: deduplicateStrings(res.designations || []),
-          owlsureDesignations: deduplicateStrings(res.owlsureDesignations || []),
           currentRoles: deduplicateStrings(res.currentRoles || []),
           deployableRoles: deduplicateStrings(res.deployableRoles || []),
           projects: deduplicateStrings(res.projects || []),

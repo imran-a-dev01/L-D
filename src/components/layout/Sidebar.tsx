@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Home, 
-  CheckCircle2, 
-  BarChart3, 
-  GripVertical 
+import {
+  Home,
+  CheckCircle2,
+  BarChart3,
+  Database,
+  GripVertical
 } from 'lucide-react';
 
-export type NavigationItem = 
-  | 'overview' 
-  | 'profile-complete' 
-  | 'skill-coverage' 
-  | 'skills';
+export type NavigationItem =
+  | 'overview'
+  | 'profile-complete'
+  | 'skill-coverage'
+  | 'skills'
+  | 'master-data';
 
 interface SidebarProps {
   activeItem: NavigationItem;
@@ -101,6 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'overview' as const, label: 'Overview', icon: Home, path: '/admin' },
     { id: 'profile-complete' as const, label: 'Profile Complete', icon: CheckCircle2, path: '/admin/profile-complete' },
     { id: 'skill-coverage' as const, label: 'Skill Coverage', icon: BarChart3, path: '/admin/skill-coverage' },
+    { id: 'master-data' as const, label: 'Master Data', icon: Database, path: '/admin/master-data' },
   ];
 
   return (
@@ -116,10 +119,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <button
         type="button"
         onClick={onToggleCollapse}
-        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-label={isCollapsed ? 'Open sidebar' : 'Close sidebar'}
         style={{ position: 'absolute', right: '-14px', top: '24px' }}
-        className={`uiverse-burger z-30 ${isCollapsed ? 'is-active' : ''}`}
-        title={isCollapsed ? 'Expand sidebar (Ctrl + B)' : 'Collapse sidebar (Ctrl + B)'}
+        className={`uiverse-burger z-30 ${!isCollapsed ? 'is-active' : ''}`}
+        title={isCollapsed ? 'Open sidebar (Ctrl + B)' : 'Close sidebar (Ctrl + B)'}
       >
         <span />
         <span />

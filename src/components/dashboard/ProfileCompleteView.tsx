@@ -5,7 +5,8 @@ import {
   Clock, 
   Search, 
   Eye, 
-  TrendingUp 
+  TrendingUp,
+  Mail 
 } from 'lucide-react';
 import { Employee } from '../../types/employee';
 import { PageHeader } from '../layout/PageHeader';
@@ -53,6 +54,7 @@ export const ProfileCompleteView: React.FC<ProfileCompleteViewProps> = ({
         const matches = 
           emp.name.toLowerCase().includes(q) ||
           emp.id.toLowerCase().includes(q) ||
+          (emp.email && emp.email.toLowerCase().includes(q)) ||
           emp.designation.toLowerCase().includes(q) ||
           emp.businessUnit.toLowerCase().includes(q);
         if (!matches) return false;
@@ -112,7 +114,7 @@ export const ProfileCompleteView: React.FC<ProfileCompleteViewProps> = ({
         <div 
           role="button"
           tabIndex={0}
-          aria-label="Verified: Toggle filter"
+          aria-label="Completed: Toggle filter"
           onClick={() => setFilterTab(filterTab === 'complete' ? 'all' : 'complete')}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -125,14 +127,14 @@ export const ProfileCompleteView: React.FC<ProfileCompleteViewProps> = ({
           }`}
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Verified (≥80%)</span>
+            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Completed (≥80%)</span>
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
           <div>
             <div className="text-3xl font-black text-[#0B1B4D] font-['Plus_Jakarta_Sans',sans-serif]">{stats.complete}</div>
-            <div className="text-xs text-[#64748B] mt-1">Ready for deployment</div>
+            <div className="text-xs text-[#64748B] mt-1">Fully completed profiles</div>
           </div>
           <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden">
             <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${stats.total > 0 ? (stats.complete / stats.total) * 100 : 0}%` }} />
@@ -163,7 +165,7 @@ export const ProfileCompleteView: React.FC<ProfileCompleteViewProps> = ({
           </div>
           <div>
             <div className="text-3xl font-black text-[#0B1B4D] font-['Plus_Jakarta_Sans',sans-serif]">{stats.progress}</div>
-            <div className="text-xs text-[#64748B] mt-1">Pending skill verification</div>
+            <div className="text-xs text-[#64748B] mt-1">Partially completed profiles</div>
           </div>
           <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden">
             <div className="bg-amber-500 h-full rounded-full transition-all duration-500" style={{ width: `${stats.total > 0 ? (stats.progress / stats.total) * 100 : 0}%` }} />
@@ -174,7 +176,7 @@ export const ProfileCompleteView: React.FC<ProfileCompleteViewProps> = ({
         <div 
           role="button"
           tabIndex={0}
-          aria-label="Action Needed: Toggle filter"
+          aria-label="Incomplete: Toggle filter"
           onClick={() => setFilterTab(filterTab === 'needs-attention' ? 'all' : 'needs-attention')}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -187,14 +189,14 @@ export const ProfileCompleteView: React.FC<ProfileCompleteViewProps> = ({
           }`}
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-rose-700 uppercase tracking-wider">Action Needed (&lt;50%)</span>
+            <span className="text-xs font-semibold text-rose-700 uppercase tracking-wider">Incomplete (&lt;50%)</span>
             <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
               <AlertCircle className="w-5 h-5" />
             </div>
           </div>
           <div>
             <div className="text-3xl font-black text-[#0B1B4D] font-['Plus_Jakarta_Sans',sans-serif]">{stats.attention}</div>
-            <div className="text-xs text-[#64748B] mt-1">Missing primary credentials</div>
+            <div className="text-xs text-[#64748B] mt-1">Pending profile details</div>
           </div>
           <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden">
             <div className="bg-rose-500 h-full rounded-full transition-all duration-500" style={{ width: `${stats.total > 0 ? (stats.attention / stats.total) * 100 : 0}%` }} />
@@ -246,7 +248,7 @@ export const ProfileCompleteView: React.FC<ProfileCompleteViewProps> = ({
                   : 'text-[#64748B] hover:text-[#0B1B4D]'
               }`}
             >
-              Needs Attention ({stats.attention})
+              Incomplete ({stats.attention})
             </button>
           </div>
 
@@ -255,7 +257,7 @@ export const ProfileCompleteView: React.FC<ProfileCompleteViewProps> = ({
             <Search className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Filter by name, ID, role..."
+              placeholder="Filter by name, ID, email, role..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3.5 py-2 text-xs bg-[#F8FAFD] border border-[#DFE5EE] rounded-xl text-[#0B1B4D] placeholder-[#94A3B8] focus:outline-none focus:border-[#016DD9] focus:bg-white transition-all"
@@ -271,8 +273,8 @@ export const ProfileCompleteView: React.FC<ProfileCompleteViewProps> = ({
                 <th className="py-3.5 px-6">Employee</th>
                 <th className="py-3.5 px-6">Business Unit & Role</th>
                 <th className="py-3.5 px-6">Completion Progress</th>
-                <th className="py-3.5 px-6">Status</th>
-                <th className="py-3.5 px-6">Skills Count</th>
+                <th className="py-3.5 px-6">Email</th>
+                <th className="py-3.5 px-6">Total Skills</th>
                 <th className="py-3.5 px-6 text-right">Action</th>
               </tr>
             </thead>
@@ -308,7 +310,7 @@ export const ProfileCompleteView: React.FC<ProfileCompleteViewProps> = ({
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-bold text-[#0B1B4D]">{emp.profileCompletion}%</span>
                           <span className="text-[10px] text-[#64748B]">
-                            {isComplete ? 'Verified' : isProgress ? 'Incomplete' : 'Critical'}
+                            {isComplete ? 'Complete' : isProgress ? 'In Progress' : 'Incomplete'}
                           </span>
                         </div>
                         <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
@@ -322,23 +324,35 @@ export const ProfileCompleteView: React.FC<ProfileCompleteViewProps> = ({
                       </div>
                     </td>
 
-                    {/* Status */}
+                    {/* Email */}
                     <td className="py-4 px-6">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
-                        isComplete
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : isProgress
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-rose-50 text-rose-700 border-rose-200'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${isComplete ? 'bg-emerald-500' : isProgress ? 'bg-amber-500' : 'bg-rose-500'}`} />
-                        {isComplete ? 'Verified' : isProgress ? 'In Progress' : 'Needs Review'}
-                      </span>
+                      {emp.email ? (
+                        <a
+                          href={`mailto:${emp.email}`}
+                          className="inline-flex items-center gap-1.5 text-xs text-[#0B1B4D] hover:text-[#016DD9] font-medium transition-colors group/mail"
+                          title={`Email ${emp.email}`}
+                        >
+                          <Mail className="w-3.5 h-3.5 text-[#94A3B8] group-hover/mail:text-[#016DD9] shrink-0 transition-colors" />
+                          <span className="truncate max-w-[200px]">
+                            {emp.email}
+                          </span>
+                        </a>
+                      ) : (
+                        <span className="text-xs text-[#94A3B8] italic">—</span>
+                      )}
                     </td>
 
                     {/* Skills count */}
                     <td className="py-4 px-6 text-[#64748B]">
-                      <span className="font-semibold text-[#0B1B4D]">{emp.technicalSkills.length}</span> verified skills
+                      {(() => {
+                        const count = (emp.technicalSkills?.length || 0) + (emp.domainExpertise?.length || 0);
+                        return (
+                          <>
+                            <span className="font-semibold text-[#0B1B4D]">{count}</span>{' '}
+                            {count === 1 ? 'total skill' : 'total skills'}
+                          </>
+                        );
+                      })()}
                     </td>
 
                     {/* Action */}

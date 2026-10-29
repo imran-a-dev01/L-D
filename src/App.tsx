@@ -126,6 +126,13 @@ function AdminLayout({ onLogout }: { onLogout: () => void }) {
     fetchEmployeesFromBackend(false);
   }, [fetchEmployeesFromBackend]);
 
+  // Immediate refetch whenever switching views (e.g. from Master Data to Profile Complete)
+  useEffect(() => {
+    if (location.pathname === '/admin' || location.pathname === '/admin/profile-complete') {
+      fetchEmployeesFromBackend(true);
+    }
+  }, [location.pathname, fetchEmployeesFromBackend]);
+
   // Auto-refetch: every 30s while visible, and immediately on tab focus or visibilitychange
   useEffect(() => {
     const interval = setInterval(() => {

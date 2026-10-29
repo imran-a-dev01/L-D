@@ -92,12 +92,33 @@ function hydrateEmployee(empRow) {
   };
 }
 
-// Calculate profile completion percentage — includes required custom fields dynamically
+// Calculate profile completion percentage — includes all custom sections & fields dynamically
 function calculateCompletion(emp, customData = {}) {
-  const requiredCustomFields = db.prepare('SELECT id FROM custom_fields WHERE is_required = 1').all();
+  const customSections = db.prepare('SELECT id FROM custom_sections').all();
+  const customFields = db.prepare('SELECT id, section FROM custom_fields').all();
 
   let score = 0;
-  let max = 10 + requiredCustomFields.length;
+  let max = 10;
+
+  // Track sections that have custom fields
+  const sectionsWithFields = new Set();
+  for (const f of customFields) {
+    max += 1;
+    if (customData[f.id] && String(customData[f.id]).trim()) {
+      score += 1;
+    }
+    if (f.section && f.section.startsWith('custom_section_')) {
+      sectionsWithFields.add(f.section);
+    }
+  }
+
+  // Any custom section with no fields yet counts as 1 requirement towards max
+  for (const s of customSections) {
+    const secKey = `custom_section_${s.id}`;
+    if (!sectionsWithFields.has(secKey)) {
+      max += 1;
+    }
+  }
 
   if (emp.id && emp.name) score += 2;
   if (emp.email) score += 1;
@@ -109,18 +130,35 @@ function calculateCompletion(emp, customData = {}) {
   if (emp.deployableRoles && emp.deployableRoles.length > 0) score += 1;
   if (emp.technicalSkills && emp.technicalSkills.length > 0) score += 1;
 
-  for (const f of requiredCustomFields) {
-    if (customData[f.id] && String(customData[f.id]).trim()) score += 1;
-  }
-
   return Math.min(100, Math.round((score / max) * 100));
 }
 
 // Recalculate profile completion for ALL employees (call after master data changes)
 export function recalculateAllCompletion() {
   const employees = db.prepare('SELECT * FROM employees').all();
-  const requiredCustomFields = db.prepare('SELECT id FROM custom_fields WHERE is_required = 1').all();
+  const customSections = db.prepare('SELECT id FROM custom_sections').all();
+  const customFields = db.prepare('SELECT id, section FROM custom_fields').all();
   const updateStmt = db.prepare('UPDATE employees SET profile_completion = ?, status = ? WHERE id = ?');
+
+  // Track sections that have custom fields
+  const sectionsWithFields = new Set();
+  let customFieldsMax = 0;
+  for (const f of customFields) {
+    customFieldsMax += 1;
+    if (f.section && f.section.startsWith('custom_section_')) {
+      sectionsWithFields.add(f.section);
+    }
+  }
+
+  let emptySectionsMax = 0;
+  for (const s of customSections) {
+    const secKey = `custom_section_${s.id}`;
+    if (!sectionsWithFields.has(secKey)) {
+      emptySectionsMax += 1;
+    }
+  }
+
+  const baseMax = 10 + customFieldsMax + emptySectionsMax;
 
   for (const e of employees) {
     const cfvs = db.prepare('SELECT field_id, value FROM employee_custom_field_values WHERE employee_id = ?').all(e.id);
@@ -128,8 +166,6 @@ export function recalculateAllCompletion() {
     for (const cv of cfvs) customData[cv.field_id] = cv.value;
 
     let score = 0;
-    let max = 10 + requiredCustomFields.length;
-
     if (e.id && e.name) score += 2;
     if (e.email) score += 1;
     if (e.designation) score += 1;
@@ -140,11 +176,11 @@ export function recalculateAllCompletion() {
     if (db.prepare('SELECT 1 FROM employee_deployable_roles WHERE employee_id = ? LIMIT 1').get(e.id)) score += 1;
     if (db.prepare('SELECT 1 FROM employee_skills WHERE employee_id = ? LIMIT 1').get(e.id)) score += 1;
 
-    for (const f of requiredCustomFields) {
+    for (const f of customFields) {
       if (customData[f.id] && String(customData[f.id]).trim()) score += 1;
     }
 
-    const completion = Math.min(100, Math.round((score / max) * 100));
+    const completion = Math.min(100, Math.round((score / baseMax) * 100));
     const status = completion >= 85 ? 'Complete' : (completion >= 65 ? 'In Progress' : 'Needs Review');
     updateStmt.run(completion, status, e.id);
   }

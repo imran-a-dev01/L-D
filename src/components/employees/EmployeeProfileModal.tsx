@@ -16,7 +16,8 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
-  Layers
+  Layers,
+  FolderOpen
 } from 'lucide-react';
 import { Employee } from '../../types/employee';
 import { SkillIcon } from '../common/SkillIcon';
@@ -49,18 +50,34 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const [skillSearch, setSkillSearch] = useState<string>('');
   const [showAllDomains, setShowAllDomains] = useState<boolean>(false);
 
+  const [customSections, setCustomSections] = useState<Array<{ id: number; label: string; after_key: string }>>([]);
+  const [customFields, setCustomFields] = useState<Array<{ id: number; section: string; label: string; field_type: string; is_required: number }>>([]);
   const [customFieldLabels, setCustomFieldLabels] = useState<Record<string, string>>({});
+
   useEffect(() => {
-    if (!employee?.customData || Object.keys(employee.customData).length === 0) return;
     (async () => {
       try {
-        const res = await api.getCustomFields();
+        const [fieldsRes, sectionsRes] = await Promise.all([
+          api.getCustomFields(),
+          api.getCustomSections(),
+        ]);
+        setCustomFields(fieldsRes.fields || []);
+        setCustomSections(sectionsRes.sections || []);
         const map: Record<string, string> = {};
-        for (const f of res.fields) map[String(f.id)] = f.label;
+        for (const f of fieldsRes.fields || []) map[String(f.id)] = f.label;
         setCustomFieldLabels(map);
       } catch { /* silent */ }
     })();
-  }, [employee?.customData]);
+  }, []);
+
+  const customFieldsBySection = useMemo(() => {
+    const map: Record<string, typeof customFields> = {};
+    for (const f of customFields) {
+      if (!map[f.section]) map[f.section] = [];
+      map[f.section].push(f);
+    }
+    return map;
+  }, [customFields]);
 
   // Lock background body scroll while modal is open
   useEffect(() => {
@@ -138,6 +155,59 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     }
     return list;
   }, [allCombinedSkills, selectedCategory, skillSearch]);
+
+  const renderCustomSection = (cs: { id: number; label: string; after_key: string }) => {
+    const fields = customFieldsBySection[`custom_section_${cs.id}`] || [];
+    return (
+      <div key={`custom_sec_${cs.id}`} className="space-y-2.5 pt-2">
+        <div className="flex items-center gap-2">
+          <FolderOpen className="w-3.5 h-3.5 text-[#1265FF]" />
+          <h4 className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider">
+            {cs.label}
+          </h4>
+          <span className="text-[10px] font-semibold bg-blue-50 text-[#1265FF] border border-blue-200 px-1.5 py-0.5 rounded">
+            Section
+          </span>
+        </div>
+        {fields.length === 0 ? (
+          <div className="text-xs text-[#94A3B8] italic py-1">
+            No fields configured in this section yet
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            {fields.map((f) => {
+              const val = (employee?.customData?.[String(f.id)] || '').trim();
+              return (
+                <div key={f.id} className="flex justify-between items-center border-b border-slate-100 pb-2">
+                  <span className="text-[#64748B]">
+                    {f.label}:
+                    {f.is_required === 1 && <span className="text-rose-500 font-bold ml-0.5">*</span>}
+                  </span>
+                  {val ? (
+                    <span className="font-semibold text-[#0B1B4D]">{val}</span>
+                  ) : (
+                    <span className="inline-flex items-center text-[#94A3B8] italic font-normal bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-[11px]">
+                      Not Provided
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderSectionsAfter = (afterKey: string) => {
+    const matchingSections = customSections.filter((cs) => cs.after_key === afterKey);
+    return matchingSections.map((cs) => (
+      <React.Fragment key={`sec_wrap_${cs.id}`}>
+        {renderCustomSection(cs)}
+        {renderSectionsAfter(`custom_section_${cs.id}`)}
+      </React.Fragment>
+    ));
+  };
 
   if (!isOpen || !employee) return null;
 
@@ -300,22 +370,35 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
             </div>
           </div>
 
-          {/* Custom Fields */}
-          {employee.customData && Object.keys(employee.customData).filter((k) => (employee.customData![k] || '').trim()).length > 0 && (
+          {/* Custom Fields in employee_info */}
+          {(customFieldsBySection['employee_info'] || []).length > 0 && (
             <div className="space-y-2.5 pt-2">
               <h4 className="text-xs font-bold text-[#0B1B4D] uppercase tracking-wider">Additional Information</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                {Object.entries(employee.customData)
-                  .filter(([, v]) => (v || '').trim())
-                  .map(([fieldId, value]) => (
-                    <div key={fieldId} className="flex justify-between border-b border-slate-100 pb-2">
-                      <span className="text-[#64748B]">{customFieldLabels[fieldId] || `Field #${fieldId}`}:</span>
-                      <span className="font-semibold text-[#0B1B4D]">{value}</span>
+                {(customFieldsBySection['employee_info'] || []).map((f) => {
+                  const val = (employee?.customData?.[String(f.id)] || '').trim();
+                  return (
+                    <div key={f.id} className="flex justify-between items-center border-b border-slate-100 pb-2">
+                      <span className="text-[#64748B]">
+                        {f.label}:
+                        {f.is_required === 1 && <span className="text-rose-500 font-bold ml-0.5">*</span>}
+                      </span>
+                      {val ? (
+                        <span className="font-semibold text-[#0B1B4D]">{val}</span>
+                      ) : (
+                        <span className="inline-flex items-center text-[#94A3B8] italic font-normal bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-[11px]">
+                          Not Provided
+                        </span>
+                      )}
                     </div>
-                  ))}
+                  );
+                })}
               </div>
             </div>
           )}
+
+          {/* Custom sections placed after employee-info */}
+          {renderSectionsAfter('employee-info')}
 
           {/* Total Skills Section with Category Filter & Search */}
           <div className="space-y-3">
@@ -403,6 +486,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
             </div>
           </div>
 
+          {/* Custom sections placed after technical-skills */}
+          {renderSectionsAfter('technical-skills')}
+
           {/* Domain & Industry Depth Section with 2-Column Grid and Show All Toggle */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -455,6 +541,14 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Custom sections placed after domain */}
+          {renderSectionsAfter('domain')}
+
+          {/* Any unplaced dynamic custom sections */}
+          {customSections
+            .filter((cs) => !['employee-info', 'technical-skills', 'domain'].includes(cs.after_key) && !cs.after_key.startsWith('custom_section_'))
+            .map((cs) => renderCustomSection(cs))}
 
           {/* Upskilling & Interests: Immediate & Learning Technologies with ChipList */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

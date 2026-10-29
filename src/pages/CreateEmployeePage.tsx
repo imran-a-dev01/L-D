@@ -19,7 +19,8 @@ import {
   AlertCircle,
   HelpCircle,
   Layers,
-  Sparkles
+  Sparkles,
+  FolderOpen
 } from 'lucide-react';
 import { Employee } from '../types/employee';
 import { TechnicalSkill, DomainExpertise, SkillCategory, ProficiencyLevel } from '../types/skill';
@@ -69,7 +70,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
   isSaving = false,
 }) => {
   const { toast } = useToast();
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [currentStep, setCurrentStep] = useState<number>(1);
 
   // Dynamic lookup options synced with SQLite master tables
   const { isLoading: dropdownsLoading, isError: dropdownsError, retry: retryDropdowns, ...dropdownOptions } = useDropdowns();
@@ -225,17 +226,107 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
   }, [customFields]);
 
   const customSectionsWithFields = useMemo(() => {
-    return customSections
-      .filter((cs) => {
-        const key = `custom_section_${cs.id}`;
-        return customFieldsBySection[key] && customFieldsBySection[key].length > 0;
-      })
-      .map((cs) => ({
-        ...cs,
-        sectionKey: `custom_section_${cs.id}`,
-        fields: customFieldsBySection[`custom_section_${cs.id}`] || [],
-      }));
+    return customSections.map((cs) => ({
+      ...cs,
+      sectionKey: `custom_section_${cs.id}`,
+      fields: customFieldsBySection[`custom_section_${cs.id}`] || [],
+    }));
   }, [customSections, customFieldsBySection]);
+
+  const steps = useMemo(() => {
+    const list: Array<{
+      num: number;
+      id: string;
+      label: string;
+      sub: string;
+      type: 'employee-info' | 'technical-skills' | 'domain' | 'custom-section' | 'review';
+      customSection?: typeof customSectionsWithFields[0];
+    }> = [];
+
+    // Step: Employee Details
+    list.push({
+      num: 0,
+      id: 'employee-info',
+      type: 'employee-info',
+      label: 'Employee Details',
+      sub: 'Basic information',
+    });
+
+    const addSectionsAfter = (parentKey: string) => {
+      const children = customSectionsWithFields.filter((cs) => cs.after_key === parentKey);
+      for (const cs of children) {
+        list.push({
+          num: 0,
+          id: `custom_section_${cs.id}`,
+          type: 'custom-section',
+          label: cs.label,
+          sub: cs.fields.length > 0 ? `${cs.fields.length} field${cs.fields.length > 1 ? 's' : ''}` : 'Custom section',
+          customSection: cs,
+        });
+        addSectionsAfter(`custom_section_${cs.id}`);
+      }
+    };
+
+    addSectionsAfter('employee-info');
+
+    // Step: Technical Skills
+    list.push({
+      num: 0,
+      id: 'technical-skills',
+      type: 'technical-skills',
+      label: 'Technical Skills',
+      sub: 'Add and update skills',
+    });
+
+    addSectionsAfter('technical-skills');
+
+    // Step: Domain Expertise
+    list.push({
+      num: 0,
+      id: 'domain',
+      type: 'domain',
+      label: 'Domain Expertise',
+      sub: 'Industry & functional skills',
+    });
+
+    addSectionsAfter('domain');
+
+    // Any unplaced custom sections
+    const placedIds = new Set(
+      list.filter((s) => s.type === 'custom-section' && s.customSection).map((s) => s.customSection!.id)
+    );
+    for (const cs of customSectionsWithFields) {
+      if (!placedIds.has(cs.id)) {
+        list.push({
+          num: 0,
+          id: `custom_section_${cs.id}`,
+          type: 'custom-section',
+          label: cs.label,
+          sub: cs.fields.length > 0 ? `${cs.fields.length} field${cs.fields.length > 1 ? 's' : ''}` : 'Custom section',
+          customSection: cs,
+        });
+      }
+    }
+
+    // Step: Review
+    list.push({
+      num: 0,
+      id: 'review',
+      type: 'review',
+      label: 'Review',
+      sub: 'Verify and submit',
+    });
+
+    return list.map((st, i) => ({ ...st, num: i + 1 }));
+  }, [customSectionsWithFields]);
+
+  const activeStep = steps[currentStep - 1] || steps[0] || {
+    num: 1,
+    id: 'employee-info',
+    type: 'employee-info' as const,
+    label: 'Employee Details',
+    sub: 'Basic information',
+  };
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -263,8 +354,12 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       }
     }
 
+    // Validate required custom fields for step 1 (employee_info section)
+    const step1FieldIds = new Set<number>();
+    (customFieldsBySection['employee_info'] || []).forEach((f) => step1FieldIds.add(f.id));
+
     for (const f of customFields) {
-      if (f.is_required && !(customFieldValues[String(f.id)] || '').trim()) {
+      if (step1FieldIds.has(f.id) && f.is_required && !(customFieldValues[String(f.id)] || '').trim()) {
         newErrors[`custom_${f.id}`] = `${f.label} is required`;
       }
     }
@@ -274,16 +369,29 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
   };
 
   const handleNext = () => {
-    if (currentStep === 1) {
+    if (!activeStep) return;
+
+    if (activeStep.type === 'employee-info') {
       if (!validateStep1()) {
         toast('Please resolve the required fields', 'error');
         return;
       }
-      setCurrentStep(2);
-    } else if (currentStep === 2) {
-      setCurrentStep(3);
-    } else if (currentStep === 3) {
-      setCurrentStep(4);
+    } else if (activeStep.type === 'custom-section' && activeStep.customSection) {
+      const missing = activeStep.customSection.fields.filter(
+        (f) => f.is_required === 1 && !(customFieldValues[String(f.id)] || '').trim()
+      );
+      if (missing.length > 0) {
+        toast(`${missing[0].label} is required`, 'error');
+        setErrors((prev) => ({
+          ...prev,
+          [`custom_${missing[0].id}`]: `${missing[0].label} is required`,
+        }));
+        return;
+      }
+    }
+
+    if (currentStep < steps.length) {
+      setCurrentStep((prev) => prev + 1);
     }
   };
 
@@ -410,17 +518,25 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       updatedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
     };
 
-    finalEmployee.profileCompletion = employeeService.calculateCompletion(finalEmployee);
+    for (const f of customFields) {
+      if (f.is_required && !(customFieldValues[String(f.id)] || '').trim()) {
+        toast(`${f.label} is required`, 'error');
+        const targetStep = steps.find(
+          (s) => s.type === 'custom-section' && s.customSection?.fields.some((cf) => cf.id === f.id)
+        );
+        if (targetStep) {
+          setCurrentStep(targetStep.num);
+        } else if (f.section === 'employee_info') {
+          setCurrentStep(1);
+        }
+        return;
+      }
+    }
+
+    finalEmployee.profileCompletion = employeeService.calculateCompletion(finalEmployee, customFields, customSections);
     finalEmployee.status = finalEmployee.profileCompletion >= 85 ? 'Complete' : (finalEmployee.profileCompletion >= 65 ? 'In Progress' : 'Needs Review');
     onSave(finalEmployee);
   };
-
-  const steps = [
-    { num: 1, label: 'Employee Details', sub: 'Basic information' },
-    { num: 2, label: 'Technical Skills', sub: 'Add and update skills' },
-    { num: 3, label: 'Domain Expertise', sub: 'Industry & functional skills' },
-    { num: 4, label: 'Review', sub: 'Verify and submit' },
-  ];
 
   return (
     <div className="space-y-3.5 w-full pb-2">
@@ -466,21 +582,37 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
         </div>
       </div>
 
-      {/* Stepper Bar - Responsive Compact Grid */}
-      <div className="bg-white rounded-2xl py-2 px-3 sm:px-5 border border-[#E3EAF5] shadow-xs w-full">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 items-center w-full">
+      {/* Stepper Bar - Responsive Dynamic Grid */}
+      <div className="bg-white rounded-2xl py-2 px-3 sm:px-5 border border-[#E3EAF5] shadow-xs w-full overflow-x-auto scrollbar-none">
+        <div 
+          className="grid gap-2 sm:gap-3 items-center w-full min-w-[560px]"
+          style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
+        >
           {steps.map((st, idx) => {
             const isCompleted = currentStep > st.num;
             const isActive = currentStep === st.num;
 
             return (
               <div
-                key={st.num}
+                key={st.id}
                 onClick={() => {
                   if (st.num < currentStep) {
-                    setCurrentStep(st.num as 1 | 2 | 3 | 4);
-                  } else if (st.num === currentStep + 1 && (currentStep !== 1 || validateStep1())) {
-                    setCurrentStep(st.num as 1 | 2 | 3 | 4);
+                    setCurrentStep(st.num);
+                  } else if (st.num > currentStep) {
+                    if (activeStep.type === 'employee-info' && !validateStep1()) {
+                      toast('Please complete required employee information', 'error');
+                      return;
+                    }
+                    if (activeStep.type === 'custom-section' && activeStep.customSection) {
+                      const missing = activeStep.customSection.fields.filter(
+                        (f) => f.is_required === 1 && !(customFieldValues[String(f.id)] || '').trim()
+                      );
+                      if (missing.length > 0) {
+                        toast(`${missing[0].label} is required`, 'error');
+                        return;
+                      }
+                    }
+                    setCurrentStep(st.num);
                   }
                 }}
                 className={`relative flex items-center gap-2.5 p-1.5 rounded-xl transition-all cursor-pointer ${
@@ -499,7 +631,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
                   {isCompleted ? <Check className="w-3.5 h-3.5" /> : st.num}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className={`text-xs font-bold truncate ${isActive ? 'text-[#0B1B4D]' : 'text-[#64748B]'}`}>
+                  <div className={`text-xs font-bold truncate capitalize ${isActive ? 'text-[#0B1B4D]' : 'text-[#64748B]'}`}>
                     {st.label}
                   </div>
                   <div className="text-[10px] text-[#94A3B8] truncate">{st.sub}</div>
@@ -507,7 +639,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
 
                 {/* Subtle vertical divider between items for desktop */}
                 {idx < steps.length - 1 && (
-                  <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 w-px h-5 bg-slate-200" />
+                  <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 w-px h-5 bg-slate-200" />
                 )}
               </div>
             );
@@ -516,7 +648,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       </div>
 
       {/* Step 1: Employee Information - Clean, Balanced 4-Column Responsive Grid */}
-      {currentStep === 1 && (
+      {activeStep.type === 'employee-info' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150 w-full">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
@@ -1016,88 +1148,26 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
             </div>
           )}
 
-          {/* ── Custom Sections with their fields ── */}
-          {customSectionsWithFields.map((cs) => (
-            <div key={cs.id} className="pt-4 border-t border-slate-100 space-y-4">
-              <div className="text-xs font-bold text-[#64748B] uppercase tracking-wider">{cs.label}</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-x-5 sm:gap-x-6 gap-y-4 sm:gap-y-5">
-                {cs.fields.map((f) => (
-                  <div key={f.id} className="flex flex-col justify-start">
-                    <div className="flex items-center justify-between h-5 mb-2 select-none">
-                      <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
-                        <span>{f.label}</span>
-                        {f.is_required === 1 && <span className="text-rose-500 font-bold">*</span>}
-                      </label>
-                      <span className="text-[10px] text-violet-500 font-medium shrink-0 ml-2">Custom</span>
-                    </div>
-                    <div className="h-11">
-                      {f.field_type === 'dropdown' ? (
-                        <CustomSelect
-                          value={customFieldValues[String(f.id)] || ''}
-                          onChange={(val) => {
-                            setCustomValue(f.id, val);
-                            if (errors[`custom_${f.id}`]) setErrors((prev) => ({ ...prev, [`custom_${f.id}`]: '' }));
-                          }}
-                          options={(customFieldOptions[f.id] || []).map((o) => o)}
-                          placeholder={`Select ${f.label.toLowerCase()}...`}
-                          allowOther={true}
-                          size="md"
-                          otherPlaceholder={`Enter custom ${f.label.toLowerCase()}...`}
-                          onSaveCustomOption={async (val) => {
-                            try {
-                              await api.addCustomFieldOption(f.id, val);
-                              const res = await api.getCustomFieldOptions(f.id);
-                              setCustomFieldOptions((prev) => ({ ...prev, [f.id]: res.options.map((o) => o.value) }));
-                              return true;
-                            } catch {
-                              return false;
-                            }
-                          }}
-                        />
-                      ) : (
-                        <input
-                          type="text"
-                          value={customFieldValues[String(f.id)] || ''}
-                          onChange={(e) => {
-                            setCustomValue(f.id, e.target.value);
-                            if (errors[`custom_${f.id}`]) setErrors((prev) => ({ ...prev, [`custom_${f.id}`]: '' }));
-                          }}
-                          placeholder={`Enter ${f.label.toLowerCase()}...`}
-                          className={`w-full px-3.5 py-2.5 bg-white border ${
-                            errors[`custom_${f.id}`] ? 'border-rose-400 ring-1 ring-rose-200' : 'border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100'
-                          } rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs h-11 transition-all`}
-                        />
-                      )}
-                    </div>
-                    <div className="min-h-[18px] mt-1 text-[11px] text-rose-500 leading-tight">
-                      {errors[`custom_${f.id}`] || ''}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-
           {/* Stepper Footer Action */}
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
             <div className="text-xs text-[#64748B] flex items-center gap-1.5 font-medium">
               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-              <span>Step 1 of 4 • Basic details & role context</span>
+              <span>Step 1 of {steps.length} • {steps[0]?.label}</span>
             </div>
             <button
               type="button"
               onClick={handleNext}
               className="btn-shake inline-flex items-center gap-2 px-6 py-2.5 text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer rounded-xl bg-[#1265FF] hover:bg-[#0E52D4] text-white"
             >
-              <span>Continue to Technical Skills</span>
+              <span>Continue to {steps[1]?.label || 'Next'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Step 2: Technical Skills - Balanced Responsive Card Grid (1 / 2 / 3 / 4 Columns) */}
-      {currentStep === 2 && (
+      {/* Step: Technical Skills */}
+      {activeStep.type === 'technical-skills' && (
         <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150 w-full">
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
@@ -1331,22 +1401,140 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
             </div>
           </div>
 
+
           {/* Stepper Navigation */}
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
             <button
               type="button"
-              onClick={() => setCurrentStep(1)}
+              onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1))}
               className="btn-shake-secondary inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 border border-[#E3EAF5] rounded-xl text-xs sm:text-sm font-semibold text-[#64748B] transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back</span>
+              <span>Back to {steps[currentStep - 2]?.label || 'Previous'}</span>
             </button>
             <button
               type="button"
               onClick={handleNext}
               className="btn-shake inline-flex items-center gap-2 px-6 py-2.5 text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 cursor-pointer rounded-xl bg-[#1265FF] hover:bg-[#0E52D4] text-white"
             >
-              <span>Continue to Domain Expertise</span>
+              <span>Continue to {steps[currentStep]?.label || 'Next'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Dynamic Custom Section */}
+      {activeStep.type === 'custom-section' && activeStep.customSection && (
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E3EAF5] shadow-xs space-y-6 animate-in fade-in duration-150 w-full">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-blue-50 text-[#1265FF] font-extrabold text-sm flex items-center justify-center">
+                {activeStep.num}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-bold text-[#0B1B4D] capitalize">
+                    {activeStep.label}
+                  </h3>
+                  <span className="text-[10px] font-semibold bg-blue-50 text-[#1265FF] border border-blue-200 px-2 py-0.5 rounded-full">
+                    Custom Section
+                  </span>
+                </div>
+                <p className="text-xs text-[#64748B]">
+                  {activeStep.customSection.fields.length > 0
+                    ? `Complete details for this section (${activeStep.customSection.fields.length} field${activeStep.customSection.fields.length > 1 ? 's' : ''})`
+                    : 'No custom fields configured for this section yet.'}
+                </p>
+              </div>
+            </div>
+            <span className="text-xs text-[#64748B] flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
+              <span className="text-rose-500 font-bold">*</span> Required fields
+            </span>
+          </div>
+
+          {activeStep.customSection.fields.length === 0 ? (
+            <div className="py-12 text-center space-y-2 bg-[#F8FAFD] rounded-2xl border border-dashed border-[#DFE5EE]">
+              <FolderOpen className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="font-semibold text-xs text-[#64748B]">No fields added to this section yet</p>
+              <p className="text-[11px] text-slate-400">
+                You can add fields under this section from Master Data at any time. Click continue to proceed.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-x-5 sm:gap-x-6 gap-y-4 sm:gap-y-5">
+              {activeStep.customSection.fields.map((f) => (
+                <div key={f.id} className="flex flex-col justify-start">
+                  <div className="flex items-center justify-between h-5 mb-2 select-none">
+                    <label className="text-xs font-bold text-[#0B1B4D] flex items-center gap-1 truncate">
+                      <span>{f.label}</span>
+                      {f.is_required === 1 && <span className="text-rose-500 font-bold">*</span>}
+                    </label>
+                    <span className="text-[10px] text-violet-500 font-medium shrink-0 ml-2">Custom</span>
+                  </div>
+                  <div className="h-11">
+                    {f.field_type === 'dropdown' ? (
+                      <CustomSelect
+                        value={customFieldValues[String(f.id)] || ''}
+                        onChange={(val) => {
+                          setCustomValue(f.id, val);
+                          if (errors[`custom_${f.id}`]) setErrors((prev) => ({ ...prev, [`custom_${f.id}`]: '' }));
+                        }}
+                        options={(customFieldOptions[f.id] || []).map((o) => o)}
+                        placeholder={`Select ${f.label.toLowerCase()}...`}
+                        allowOther={true}
+                        size="md"
+                        otherPlaceholder={`Enter custom ${f.label.toLowerCase()}...`}
+                        onSaveCustomOption={async (val) => {
+                          try {
+                            await api.addCustomFieldOption(f.id, val);
+                            const res = await api.getCustomFieldOptions(f.id);
+                            setCustomFieldOptions((prev) => ({ ...prev, [f.id]: res.options.map((o) => o.value) }));
+                            return true;
+                          } catch {
+                            return false;
+                          }
+                        }}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={customFieldValues[String(f.id)] || ''}
+                        onChange={(e) => {
+                          setCustomValue(f.id, e.target.value);
+                          if (errors[`custom_${f.id}`]) setErrors((prev) => ({ ...prev, [`custom_${f.id}`]: '' }));
+                        }}
+                        placeholder={`Enter ${f.label.toLowerCase()}...`}
+                        className={`w-full px-3.5 py-2.5 bg-white border ${
+                          errors[`custom_${f.id}`] ? 'border-rose-400 ring-1 ring-rose-200' : 'border-[#E3EAF5] focus:border-[#1265FF] focus:ring-2 focus:ring-blue-100'
+                        } rounded-xl text-xs sm:text-sm text-[#0B1B4D] font-medium focus:outline-none shadow-2xs h-11 transition-all`}
+                      />
+                    )}
+                  </div>
+                  <div className="min-h-[18px] mt-1 text-[11px] text-rose-500 leading-tight">
+                    {errors[`custom_${f.id}`] || ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Stepper Navigation */}
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1))}
+              className="btn-shake-secondary inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 border border-[#E3EAF5] rounded-xl text-xs sm:text-sm font-semibold text-[#64748B] transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to {steps[currentStep - 2]?.label || 'Previous'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleNext}
+              className="btn-shake inline-flex items-center gap-2 px-6 py-2.5 text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 cursor-pointer rounded-xl bg-[#1265FF] hover:bg-[#0E52D4] text-white"
+            >
+              <span>Continue to {steps[currentStep]?.label || 'Next'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -1354,7 +1542,7 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
       )}
 
       {/* Step 3: Domain Expertise - Balanced Responsive Card Grid (1 / 2 / 3 / 4 Columns) */}
-      {currentStep === 3 && (
+      {activeStep.type === 'domain' && (
         <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150 w-full">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
@@ -1520,31 +1708,31 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
             <button
               type="button"
-              onClick={() => setCurrentStep(2)}
+              onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1))}
               className="btn-shake-secondary inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 border border-[#E3EAF5] rounded-xl text-xs sm:text-sm font-semibold text-[#64748B] transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back</span>
+              <span>Back to {steps[currentStep - 2]?.label || 'Previous'}</span>
             </button>
             <button
               type="button"
               onClick={handleNext}
               className="btn-shake inline-flex items-center gap-2 px-6 py-2.5 text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 cursor-pointer rounded-xl bg-[#1265FF] hover:bg-[#0E52D4] text-white"
             >
-              <span>Continue to Final Review</span>
+              <span>Continue to {steps[currentStep]?.label || 'Review'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Step 4: Final Review and Summary - Multi-column Responsive Layout */}
-      {currentStep === 4 && (
+      {/* Step: Final Review and Summary - Multi-column Responsive Layout */}
+      {activeStep.type === 'review' && (
         <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E3EAF5] shadow-xs space-y-5 animate-in fade-in duration-150 w-full">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-blue-50 text-[#1265FF] font-extrabold text-sm flex items-center justify-center">
-                4
+                {activeStep.num}
               </div>
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-[#0B1B4D]">Review & submit</h3>
@@ -1599,19 +1787,81 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
             </div>
           </div>
 
-          {/* Custom Fields Preview */}
-          {customFields.filter((f) => (customFieldValues[String(f.id)] || '').trim()).length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Custom Fields</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
-                {customFields
-                  .filter((f) => (customFieldValues[String(f.id)] || '').trim())
-                  .map((f) => (
-                    <div key={f.id} className="p-3 rounded-xl bg-[#F8FAFD] border border-[#E3EAF5]">
-                      <div className="text-[11px] font-semibold text-[#64748B] mb-0.5">{f.label}</div>
-                      <div className="text-sm font-bold text-[#0B1B4D] truncate">{customFieldValues[String(f.id)]}</div>
+          {/* Custom Sections & Fields Preview */}
+          {(customSectionsWithFields.length > 0 || (customFieldsBySection['employee_info'] || []).length > 0) && (
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-[#64748B] uppercase tracking-wider flex items-center gap-1.5">
+                <FolderOpen className="w-3.5 h-3.5 text-[#1265FF]" />
+                <span>Custom Sections & Fields</span>
+              </h4>
+              <div className="space-y-3">
+                {/* Additional Fields under employee_info */}
+                {(customFieldsBySection['employee_info'] || []).length > 0 && (
+                  <div className="p-4 rounded-2xl bg-[#F8FAFD] border border-[#E3EAF5] space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-[#0B1B4D]">Additional Information</span>
+                      <span className="text-[10px] font-semibold bg-slate-100 text-[#64748B] border border-slate-200 px-1.5 py-0.2 rounded">
+                        Employee Details
+                      </span>
                     </div>
-                  ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+                      {(customFieldsBySection['employee_info'] || []).map((f) => {
+                        const val = (customFieldValues[String(f.id)] || '').trim();
+                        return (
+                          <div key={f.id} className="p-2.5 rounded-xl bg-white border border-[#E3EAF5]">
+                            <div className="text-[11px] font-semibold text-[#64748B] mb-0.5 truncate">
+                              {f.label}
+                              {f.is_required === 1 && <span className="text-rose-500 font-bold ml-0.5">*</span>}
+                            </div>
+                            {val ? (
+                              <div className="text-xs font-bold text-[#0B1B4D] truncate">{val}</div>
+                            ) : (
+                              <span className="inline-flex items-center text-[#94A3B8] italic font-normal bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-[10px]">
+                                Not Provided
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom Sections from Master Data */}
+                {customSectionsWithFields.map((sec) => (
+                  <div key={sec.id} className="p-4 rounded-2xl bg-[#F8FAFD] border border-[#E3EAF5] space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-[#0B1B4D] capitalize">{sec.label}</span>
+                      <span className="text-[10px] font-semibold bg-blue-50 text-[#1265FF] border border-blue-200 px-1.5 py-0.2 rounded">
+                        Section
+                      </span>
+                    </div>
+                    {sec.fields.length === 0 ? (
+                      <div className="text-xs text-[#94A3B8] italic">No fields configured in this section</div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+                        {sec.fields.map((f) => {
+                          const val = (customFieldValues[String(f.id)] || '').trim();
+                          return (
+                            <div key={f.id} className="p-2.5 rounded-xl bg-white border border-[#E3EAF5]">
+                              <div className="text-[11px] font-semibold text-[#64748B] mb-0.5 truncate">
+                                {f.label}
+                                {f.is_required === 1 && <span className="text-rose-500 font-bold ml-0.5">*</span>}
+                              </div>
+                              {val ? (
+                                <div className="text-xs font-bold text-[#0B1B4D] truncate">{val}</div>
+                              ) : (
+                                <span className="inline-flex items-center text-[#94A3B8] italic font-normal bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-[10px]">
+                                  Not Provided
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -1674,11 +1924,11 @@ export const CreateEmployeePage: React.FC<CreateEmployeePageProps> = ({
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
             <button
               type="button"
-              onClick={() => setCurrentStep(3)}
+              onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1))}
               className="btn-shake-secondary inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 border border-[#E3EAF5] rounded-xl text-xs sm:text-sm font-semibold text-[#64748B] transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back</span>
+              <span>Back to {steps[currentStep - 2]?.label || 'Previous'}</span>
             </button>
             <button
               type="button"

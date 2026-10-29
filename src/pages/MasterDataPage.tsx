@@ -309,7 +309,7 @@ export function MasterDataPage() {
 
   const activeSection = useMemo<NavSection | undefined>(() => {
     for (const sec of sections) {
-      if (sec.children.some((c) => c.key === activeKey)) return sec;
+      if (sec.key === activeKey || sec.children.some((c) => c.key === activeKey)) return sec;
     }
     return undefined;
   }, [activeKey, sections]);
@@ -560,7 +560,7 @@ export function MasterDataPage() {
       setAddFieldType('dropdown');
       setAddFieldRequired(false);
       await fetchCustomFields();
-      if (res.field && addFieldType === 'dropdown') {
+      if (res.field) {
         setActiveKey(`custom:${res.field.id}`);
       }
     } catch (err: any) {
@@ -593,7 +593,7 @@ export function MasterDataPage() {
   // ── Add Section dialog ─────────────────────────────────────────────
   const [showAddSection, setShowAddSection] = useState(false);
   const [addSectionName, setAddSectionName] = useState('');
-  const [addSectionAfter, setAddSectionAfter] = useState('review');
+  const [addSectionAfter, setAddSectionAfter] = useState('domain');
   const [isCreatingSection, setIsCreatingSection] = useState(false);
 
   const sectionPositionOptions = useMemo(() => {
@@ -604,12 +604,15 @@ export function MasterDataPage() {
     if (!addSectionName.trim()) return;
     setIsCreatingSection(true);
     try {
-      await api.createCustomSection(addSectionName.trim(), addSectionAfter);
+      const res = await api.createCustomSection(addSectionName.trim(), addSectionAfter);
       toast(`"${addSectionName.trim()}" section created`, 'success', 'Section Created');
       setShowAddSection(false);
       setAddSectionName('');
-      setAddSectionAfter('review');
+      setAddSectionAfter(sections[sections.length - 1]?.key || 'domain');
       await fetchCustomSections();
+      if (res?.section?.id) {
+        setActiveKey(`custom_section_${res.section.id}`);
+      }
     } catch (err: any) {
       toast(err.message || 'Failed to create section', 'error', 'Error');
     } finally {
@@ -789,7 +792,12 @@ export function MasterDataPage() {
                   <div className="flex items-center group/section">
                     <button
                       type="button"
-                      onClick={() => toggleSection(section.key)}
+                      onClick={() => {
+                        toggleSection(section.key);
+                        if (isCustomSection && section.children.length === 0) {
+                          setActiveKey(section.key);
+                        }
+                      }}
                       className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-bold text-[#0B1B4D] uppercase tracking-wide hover:bg-slate-50 transition-colors cursor-pointer min-w-0"
                     >
                       <SectionIcon className="w-4 h-4 text-[#64748B] shrink-0" />
@@ -997,6 +1005,47 @@ export function MasterDataPage() {
 
         {/* ─── RIGHT: Values panel ────────────────────────────────────── */}
         <div className="flex-1 bg-white rounded-2xl border border-[#DFE5EE] shadow-sm flex flex-col overflow-hidden">
+          {!activeChild && activeSection && activeSection.key.startsWith('custom_section_') ? (
+            <div className="p-8 flex-1 flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 text-[#016DD9] flex items-center justify-center">
+                <FolderOpen className="w-7 h-7" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#0B1B4D]">{activeSection.label}</h3>
+                <p className="text-xs text-[#64748B] mt-1">
+                  {activeSection.children.length === 0
+                    ? 'This section does not have any fields yet. Add your first field to start configuring master data.'
+                    : `This section has ${activeSection.children.length} custom field(s). Select a field from the sidebar or add another field.`}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddFieldSection(activeSection.key);
+                    setAddFieldName('');
+                    setAddFieldType('dropdown');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#016DD9] hover:bg-[#0158B0] text-white text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Field</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const id = parseInt(activeSection.key.replace('custom_section_', ''));
+                    setDeleteSectionConfirm({ id, label: activeSection.label });
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold rounded-xl transition-all cursor-pointer border border-rose-200"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Section</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Panel header */}
           <div className="px-5 py-4 border-b border-[#DFE5EE] flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -1270,6 +1319,8 @@ export function MasterDataPage() {
                 Showing {displayItems.length} of {rawItems.length} item{rawItems.length !== 1 ? 's' : ''}
               </p>
             </div>
+          )}
+            </>
           )}
         </div>
       </div>

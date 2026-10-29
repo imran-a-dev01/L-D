@@ -90,6 +90,7 @@ router.post('/sections', authenticateToken, (req, res) => {
     ).run(trimmed, afterKey);
 
     const created = db.prepare('SELECT * FROM custom_sections WHERE id = ?').get(result.lastInsertRowid);
+    recalculateAllCompletion();
     return res.status(201).json({ section: created });
   } catch (err) {
     console.error('Error creating section:', err);
@@ -140,6 +141,7 @@ router.delete('/sections/:id', authenticateToken, (req, res) => {
       .run(section.after_key, `custom_section_${id}`);
 
     db.prepare('DELETE FROM custom_sections WHERE id = ?').run(id);
+    recalculateAllCompletion();
     return res.json({ success: true });
   } catch (err) {
     console.error('Error deleting section:', err);
@@ -194,7 +196,7 @@ router.post('/fields', authenticateToken, (req, res) => {
 
     const created = db.prepare('SELECT * FROM custom_fields WHERE id = ?').get(result.lastInsertRowid);
 
-    if (required) recalculateAllCompletion();
+    recalculateAllCompletion();
 
     return res.status(201).json({ field: created });
   } catch (err) {
@@ -224,7 +226,7 @@ router.put('/fields/:id', authenticateToken, (req, res) => {
     const required = is_required !== undefined ? (is_required ? 1 : 0) : field.is_required;
     db.prepare('UPDATE custom_fields SET label = ?, is_required = ? WHERE id = ?').run(trimmedLabel, required, id);
 
-    if (required !== field.is_required) recalculateAllCompletion();
+    recalculateAllCompletion();
 
     return res.json({ success: true });
   } catch (err) {

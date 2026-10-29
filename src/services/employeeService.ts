@@ -47,9 +47,31 @@ export const employeeService = {
     }
   },
 
-  calculateCompletion(emp: Partial<Employee>): number {
+  calculateCompletion(
+    emp: Partial<Employee>,
+    customFieldsList: Array<{ id: number; section?: string }> = [],
+    customSectionsList: Array<{ id: number }> = []
+  ): number {
     let score = 0;
-    const max = 10;
+    let max = 10;
+
+    const sectionsWithFields = new Set<string>();
+    for (const f of customFieldsList) {
+      max += 1;
+      if (emp.customData && emp.customData[String(f.id)] && String(emp.customData[String(f.id)]).trim()) {
+        score += 1;
+      }
+      if (f.section && f.section.startsWith('custom_section_')) {
+        sectionsWithFields.add(f.section);
+      }
+    }
+
+    for (const s of customSectionsList) {
+      const secKey = `custom_section_${s.id}`;
+      if (!sectionsWithFields.has(secKey)) {
+        max += 1;
+      }
+    }
 
     if (emp.id && emp.name) score += 2;
     if (emp.email) score += 1;
@@ -88,10 +110,25 @@ export const employeeService = {
     workbook.created = new Date();
     workbook.modified = new Date();
 
-    let customFields: Array<{ id: number; label: string }> = [];
+    let customFields: Array<{ id: number; label: string; sectionName: string }> = [];
     try {
-      const res = await api.getCustomFields();
-      customFields = (res.fields || []).map((f: any) => ({ id: f.id, label: f.label }));
+      const [fieldsRes, sectionsRes] = await Promise.all([
+        api.getCustomFields(),
+        api.getCustomSections(),
+      ]);
+      const secMap: Record<string, string> = {
+        employee_info: 'Employee Info',
+        technical_skills: 'Technical Skills',
+        domain: 'Domain',
+      };
+      (sectionsRes.sections || []).forEach((s) => {
+        secMap[`custom_section_${s.id}`] = s.label;
+      });
+      customFields = (fieldsRes.fields || []).map((f: any) => ({
+        id: f.id,
+        label: f.label,
+        sectionName: secMap[f.section] || 'Custom',
+      }));
     } catch { /* custom fields unavailable — export without them */ }
 
     const STANDARD_CATEGORIES = ['Frontend', 'Backend', 'Database', 'Cloud', 'Data', 'DevOps & Tools'] as const;
@@ -256,7 +293,8 @@ export const employeeService = {
     }
 
     for (const cf of customFields) {
-      sheet1Columns.push({ header: cf.label, key: `custom_${cf.id}`, width: 22 });
+      const headerTitle = cf.sectionName ? `${cf.sectionName} - ${cf.label}` : cf.label;
+      sheet1Columns.push({ header: headerTitle, key: `custom_${cf.id}`, width: 22 });
     }
 
     sheet1Columns.push(
@@ -516,10 +554,25 @@ export const employeeService = {
   },
 
   async exportCsv(list: Employee[], customFilename?: string) {
-    let customFields: Array<{ id: number; label: string }> = [];
+    let customFields: Array<{ id: number; label: string; sectionName: string }> = [];
     try {
-      const res = await api.getCustomFields();
-      customFields = (res.fields || []).map((f: any) => ({ id: f.id, label: f.label }));
+      const [fieldsRes, sectionsRes] = await Promise.all([
+        api.getCustomFields(),
+        api.getCustomSections(),
+      ]);
+      const secMap: Record<string, string> = {
+        employee_info: 'Employee Info',
+        technical_skills: 'Technical Skills',
+        domain: 'Domain',
+      };
+      (sectionsRes.sections || []).forEach((s) => {
+        secMap[`custom_section_${s.id}`] = s.label;
+      });
+      customFields = (fieldsRes.fields || []).map((f: any) => ({
+        id: f.id,
+        label: f.label,
+        sectionName: secMap[f.section] || 'Custom',
+      }));
     } catch { /* proceed without custom fields */ }
 
     const headers = [
@@ -540,7 +593,7 @@ export const employeeService = {
       'Deployable Roles',
       'Immediate Technologies',
       'Learning Technologies',
-      ...customFields.map((cf) => cf.label),
+      ...customFields.map((cf) => cf.sectionName ? `${cf.sectionName} - ${cf.label}` : cf.label),
       'Category',
       'Skill',
       'Proficiency',
